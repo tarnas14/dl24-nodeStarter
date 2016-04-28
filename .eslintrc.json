@@ -14,9 +14,7 @@
       "sourceType": "module"
   },
 
-  "plugins": [
-    "react"
-  ],
+  "plugins": [],
 
   "rules": {
     "react/display-name": 0,
