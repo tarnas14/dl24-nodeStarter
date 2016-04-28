@@ -6,7 +6,7 @@ const gameLoop = (service) => {
 };
 
 const emitter = dl24client({username: 'zenek', password: 'gitara'}, gameLoop);
-emitter.on('error', (error) => console.log('error', error));
-emitter.on('waiting', (millisecondsTillNextTurn) => console.log('waiting for next turn', millisecondsTillNextTurn));
-emitter.on('receivedFromServer', (data) => console.log('received', data));
-emitter.on('sentToServer', (command) => console.log('sentToServer', command));
+emitter.on('error', (error) => console.log('error', JSON.stringify(error)));
+emitter.on('waiting', (millisecondsTillNextTurn) => console.log('waiting for next turn', JSON.stringify(millisecondsTillNextTurn)));
+emitter.on('receivedFromServer', (data) => console.log('received', JSON.stringify(data)));
+emitter.on('sentToServer', (command) => console.log('sentToServer', JSON.stringify(command)));
