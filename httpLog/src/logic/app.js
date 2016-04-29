@@ -6,6 +6,6 @@ const socket = io();
 socket.on('connect', () => {
     socket.emit('fromClient', 'hello');
 });
-socket.on('fromServer', (data) => {
-    console.log('fromServer', data);
+socket.on('newLogEntry', (data) => {
+    console.log(data);
 });

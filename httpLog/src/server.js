@@ -5,7 +5,7 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const socketIo = require('socket.io');
 
-const PORT = process.env.PORT || 3001;
+const PORT = 3001;
 const PUBLIC_PATH = path.resolve(__dirname, 'public');
 
 const app = express();
@@ -25,24 +25,13 @@ const server = app.listen(PORT, () => {
     console.log('listening on port ', PORT);
 });
 
-const lameSocket = {
-    connect (serv) {
-        const io = socketIo.listen(serv);
+const io = socketIo.listen(server);
 
-        io.on('connect', (socket) => {
-            console.log('lol connection!');
+app.post('/log', (req, res) => {
+    const logEntry = req.body;
+    console.log('post', logEntry);
 
-            socket.on('fromClient', (data) => {
-                console.log(data);
-            });
-        });
+    io.emit('newLogEntry', logEntry);
 
-        return io;
-    }
-};
-
-const o = lameSocket.connect(server);
-let i = 0;
-setInterval(() => {
-    o.emit('fromServer', i++);
-}, 500);
+    res.sendStatus(200);
+});
