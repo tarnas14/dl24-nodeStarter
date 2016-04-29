@@ -17,8 +17,8 @@ app.use(bodyParser.urlencoded({
 
 app.use('/public', express.static(PUBLIC_PATH));
 
-app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, 'public', 'index.html'));
+app.get('/log', (req, res) => {
+    res.sendFile(path.resolve(__dirname, 'public', 'log.html'));
 });
 
 const server = app.listen(PORT, () => {
@@ -32,13 +32,17 @@ const lameSocket = {
         io.on('connect', (socket) => {
             console.log('lol connection!');
 
-            io.emit('fromServer', 'aha!');
-
             socket.on('fromClient', (data) => {
                 console.log(data);
             });
         });
+
+        return io;
     }
 };
 
-lameSocket.connect(server);
+const o = lameSocket.connect(server);
+let i = 0;
+setInterval(() => {
+    o.emit('fromServer', i++);
+}, 500);
