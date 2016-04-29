@@ -17,8 +17,8 @@ app.use(bodyParser.urlencoded({
 
 app.use('/public', express.static(PUBLIC_PATH));
 
-app.get('/log', (req, res) => {
-    res.sendFile(path.resolve(__dirname, 'public', 'log.html'));
+app.get('/', (req, res) => {
+    res.sendFile(path.resolve(__dirname, 'public', 'index.html'));
 });
 
 const server = app.listen(PORT, () => {
@@ -29,7 +29,6 @@ const io = socketIo.listen(server);
 
 app.post('/log', (req, res) => {
     const logEntry = req.body;
-    console.log('post', logEntry);
 
     io.emit('newLogEntry', logEntry);
 
