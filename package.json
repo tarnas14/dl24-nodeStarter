@@ -1,0 +1,23 @@
+{
+  "name": "dl24-nodestarter",
+  "version": "1.0.0",
+  "description": "client and utilities for dl24 lite, an internal hackathon organized by Future Processing, written in node because hey why not",
+  "main": "dl24client.js",
+  "scripts": {
+    "example": "node --harmony_destructuring example",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tarnas14/dl24-nodeStarter.git"
+  },
+  "author": "tarnas14",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tarnas14/dl24-nodeStarter/issues"
+  },
+  "homepage": "https://github.com/tarnas14/dl24-nodeStarter#readme",
+  "dependencies": {
+    "request": "^2.72.0"
+  }
+}

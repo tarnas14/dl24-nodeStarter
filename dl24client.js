@@ -1,6 +1,6 @@
 'use strict';
 const net = require('net');
-const port = 20000;
+const serverPort = 20000;
 const EventEmitter = require('events').EventEmitter;
 
 String.prototype.withTerminator = function withTerminator () {
@@ -30,7 +30,7 @@ const getErrorFromServerResponse = (errorResponse) => {
 
 const dl24client = ({username, password}, gameLoop) => {
     const eventEmitter = new EventEmitter();
-    const connection = net.createConnection(port);
+    const connection = net.createConnection(serverPort);
     connection.setEncoding('utf8');
 
     const service = {
