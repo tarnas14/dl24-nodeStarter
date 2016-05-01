@@ -8,6 +8,6 @@ const gameLoop = (service) => {
 
 const emitter = dl24client({username: 'zenek', password: 'gitara'}, gameLoop);
 emitter.on('error', (error) => logger.info(error));
-emitter.on('waiting', (millisecondsTillNextTurn) => logger.info({millisecondsTillNextTurn}));
-emitter.on('receivedFromServer', (data) => logger.info(data));
-emitter.on('sentToServer', (command) => logger.info(command));
+emitter.on('waiting', (millisecondsTillNextTurn) => logger.info('waiting', {millisecondsTillNextTurn}));
+emitter.on('receivedFromServer', (data) => logger.info('receivedFromServer', data));
+emitter.on('sentToServer', (command) => logger.info('sentToServer', command));

@@ -80,10 +80,10 @@ const dl24client = ({username, password}, gameLoop) => {
                 });
             }
 
-            connection.write(command.type.withTerminator(), () => eventEmitter.emit('sentToServer', command));
+            connection.write(command.serverCommand.withTerminator(), () => eventEmitter.emit('sentToServer', command));
         },
         nextTurn () {
-            this.sendCommand({type: 'wait', expectedLines: 1}, () => {});
+            this.sendCommand({serverCommand: 'wait', expectedLines: 1}, () => {});
         }
     };
 
