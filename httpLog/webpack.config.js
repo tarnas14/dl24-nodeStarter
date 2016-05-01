@@ -3,12 +3,14 @@ var webpack = require('webpack');
 
 module.exports = {
     entry: {
-        app: ['./src/logic/app.js'],
-        vendor: ['socket.io-client']
+        app: ['./src/logic/app.jsx'],
+        vendor: ['socket.io-client', 'react', 'react-dom', 'bootstrap-webpack!./bootstrap.config.js']
     },
 
     output: {
-        filename: './src/public/[name].js'
+        path: path.resolve(__dirname, 'src/public'),
+        filename: '[name].js',
+        publicPath: '/'
     },
 
     module: {
@@ -20,19 +22,41 @@ module.exports = {
                     path.resolve(__dirname, 'src/logic')
                 ],
 
-                test: [/\.js$/]
+                test: [/\.js$/, /\.jsx$/]
+            },
+            {
+                test: /\.(woff|woff2)(\?v=\d+\.\d+\.\d+)?$/,
+                loader: 'url?limit=10000&mimetype=application/font-woff&name=[name].[ext]'
+            },
+            {
+                test: /\.ttf(\?v=\d+\.\d+\.\d+)?$/,
+                loader: 'url?limit=10000&mimetype=application/octet-stream&name=[name].[ext]'
+            },
+            {
+                test: /\.eot(\?v=\d+\.\d+\.\d+)?$/,
+                loader: 'file?name=[name].[ext]'
+            },
+            {
+                test: /\.svg(\?v=\d+\.\d+\.\d+)?$/,
+                loader: 'url?limit=10000&mimetype=image/svg+xml&name=[name].[ext]'
             }
         ]
     },
 
     resolve: {
-        extensions: ['', '.js']
+        extensions: ['', '.js', '.jsx']
     },
 
     plugins: [
         new webpack.optimize.CommonsChunkPlugin({
             name: 'vendor',
-            filename: './src/public/vendor.js'
+            filename: 'vendor.js'
+        }),
+        new webpack.ProvidePlugin({
+            $: 'jquery',
+            jQuery: 'jquery',
+            'window.jQuery': 'jquery',
+            'root.jQuery': 'jquery'
         })
     ],
 

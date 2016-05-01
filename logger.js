@@ -23,6 +23,7 @@ const loggerFactory = (namespace) => {
     return {
         info (logEntry) {
             post({
+                timestamp: new Date(),
                 namespace: namespace,
                 level: LEVELS.INFO,
                 logEntry: logEntry
