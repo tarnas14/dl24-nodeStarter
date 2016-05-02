@@ -144,9 +144,9 @@ const App = React.createClass({
 
     reset () {
         this.setState(oldState => {
-            console.log(oldState.entries.slice(51, -50));
+            console.log(oldState.entries.slice(-50));
             return {
-                displayedEntries: oldState.entries.slice(51, -50),
+                displayedEntries: oldState.entries.slice(-50),
                 selected: null
             };
         });
