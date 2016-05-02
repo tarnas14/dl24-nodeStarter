@@ -2,7 +2,7 @@ import React from 'react';
 
 const Grid = React.createClass({
     propTypes: {
-        data: React.PropTypes.array.isRequired,
+        data: React.PropTypes.object.isRequired,
         styles: React.PropTypes.object,
     },
 
@@ -23,8 +23,9 @@ const Grid = React.createClass({
 
         return (
             <div className="container text-center">
+                <h3>{data.name}</h3>
                 <div className="grid" style={{display: 'inline-block'}}>
-                    {data.map((row, index) => (
+                    {data.gridDefinition.map((row, index) => (
                         <div
                             className="grid-row"
                             key={`row${index}`}

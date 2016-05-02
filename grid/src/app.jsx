@@ -4,32 +4,39 @@ import io from 'socket.io-client';
 
 import Grid from './grid';
 
-const range = (numberOfElements) => {
-    return Array.apply(null, Array(numberOfElements)).map((_, i) => i);
-};
-
 const App = React.createClass({
     getInitialState () {
         return {
-            data: range(41).map(y => range(41).map(x => {
-                const cellDefinition = {x: x, y: y};
-
-                if (x === y || 40 - y === x) {
-                    cellDefinition.color = 'blue';
-                }
-
-                return cellDefinition;
-            }))
+            grids: []
         };
     },
 
     componentDidMount () {
         const socket = io();
-        socket.on('newGrid', (gridDefinition) => console.log('new grid!', gridDefinition));
+        socket.on('grid', (gridDefinition) => {
+            console.log('grid update', gridDefinition);
+
+            this.setState(oldState => {
+                const gridToUpdate = oldState.grids.find(grid => grid.name === gridDefinition.name);
+                if (gridToUpdate) {
+                    const gridToUpdateIndex = oldState.grids.indexOf(gridToUpdate);
+
+                    return {
+                        grids: [...oldState.grids.slice(0, gridToUpdateIndex), gridDefinition, ...oldState.grids.slice(gridToUpdateIndex + 1)]
+                    };
+                }
+
+                return {
+                    grids: [...oldState.grids, gridDefinition]
+                };
+            });
+        });
     },
 
     render () {
-        return <Grid data={this.state.data} />;
+        return (<div>
+            {this.state.grids.map(grid => <Grid data={grid} key={grid.name} />)}
+        </div>);
     }
 });
 
