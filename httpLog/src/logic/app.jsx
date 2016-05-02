@@ -132,12 +132,10 @@ const App = React.createClass({
     loadPrevious () {
         this.setState(oldState => {
             const firstDisplayedIndex = oldState.entries.indexOf(oldState.displayedEntries[0]);
-            const firstPreviousIndex = firstDisplayedIndex - 50 > 0 ? firstDisplayedIndex - 50 : 0;
-            const previousCount = firstDisplayedIndex - 50 > 0 ? 50 : firstDisplayedIndex - 50;
-            const previousEntries = oldState.entries.slice(firstPreviousIndex, previousCount);
+            const displayedElements = oldState.entries.length - firstDisplayedIndex;
 
             return {
-                displayedEntries: [...previousEntries, oldState.displayedEntries]
+                displayedEntries: oldState.entries.slice(-(displayedElements + 50))
             };
         });
     },
