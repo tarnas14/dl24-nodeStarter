@@ -5,7 +5,7 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const socketIo = require('socket.io');
 
-const PORT = 3001;
+const PORT = process.argv[2] || 3001;
 const PUBLIC_PATH = path.resolve(__dirname, 'public');
 
 const app = express();

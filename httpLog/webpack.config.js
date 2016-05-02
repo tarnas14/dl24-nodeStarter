@@ -3,7 +3,7 @@ var webpack = require('webpack');
 
 module.exports = {
     entry: {
-        app: ['./src/logic/app.jsx'],
+        app: ['./src/app.jsx'],
         vendor: ['socket.io-client', 'react', 'react-dom', 'bootstrap-webpack!./bootstrap.config.js']
     },
 
@@ -19,7 +19,7 @@ module.exports = {
                 loader: 'babel-loader',
 
                 include: [
-                    path.resolve(__dirname, 'src/logic')
+                    path.resolve(__dirname, 'src')
                 ],
 
                 test: [/\.js$/, /\.jsx$/]
