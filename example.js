@@ -3,6 +3,29 @@ const namespace = process.argv[2] || 'example';
 
 const dl24client = require('./dl24client');
 const logger = require('./logger')(namespace);
+const gridder = require('./gridder')(namespace);
+
+const range = (numberOfElements) => {
+    return Array.apply(null, Array(numberOfElements)).map((_, i) => i);
+};
+
+const getRandomInt = (min, max) => (Math.floor(Math.random() * (max - min)) + min);
+
+const map = range(41).map(y => range(41).map(x => {
+    const cellDefinition = {x: x, y: y};
+
+    if (x === y || 40 - y === x) {
+        cellDefinition.color = 'blue';
+    }
+
+    return cellDefinition;
+}));
+
+setInterval(() => {
+    map[getRandomInt(0, 41)][getRandomInt(0, 41)].color = 'red';
+
+    gridder.grid(map);
+}, 100);
 
 const gameLoop = (service) => {
     service.nextTurn();
