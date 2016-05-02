@@ -1,6 +1,8 @@
 'use strict';
+const namespace = process.argv[2] || 'example';
+
 const dl24client = require('./dl24client');
-const logger = require('./logger')('example');
+const logger = require('./logger')(namespace);
 
 const gameLoop = (service) => {
     service.nextTurn();
