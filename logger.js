@@ -21,11 +21,13 @@ const LEVELS = {
 
 const loggerFactory = (namespace) => {
     return {
-        info (logEntry) {
+        info (type, logEntry) {
             post({
-                namespace: namespace,
+                timestamp: new Date(),
                 level: LEVELS.INFO,
-                logEntry: logEntry
+                type,
+                namespace,
+                data: logEntry
             });
         }
     };
