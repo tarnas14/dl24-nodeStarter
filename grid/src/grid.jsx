@@ -1,9 +1,10 @@
 import React from 'react';
 
+import ObservingCell from './observingCell';
+
 const Grid = React.createClass({
     propTypes: {
         data: React.PropTypes.object.isRequired,
-        styles: React.PropTypes.object,
     },
 
     getInitialState () {
@@ -11,15 +12,15 @@ const Grid = React.createClass({
             styles: {
                 side: 10,
                 background: 'grey',
-                ...this.props.styles
+                ...this.props.data.styles
             }
         };
     },
 
     render () {
         const {data} = this.props;
-        const side = `${this.state.styles.side}px`;
         const {styles} = this.state;
+        const side = `${styles.side}px`;
 
         return (
             <div className="container text-center">
@@ -32,12 +33,7 @@ const Grid = React.createClass({
                             style={{height: side}}
                         >
                             {row.map((cell) => (
-                                <div
-                                    className="cell"
-                                    data-point={`col${cell.x}x${cell.y}`}
-                                    key={`col${cell.x}x${cell.y}`}
-                                    style={{backgroundColor: cell.color || styles.background, display: 'inline-block', width: side, height: '100%'}}
-                                ></div>
+                                <ObservingCell cellDefinition={cell} gridChangeStream={data.gridChangeStream} key={`col${cell.x}x${cell.y}`} styles={styles} />
                             ))}
                         </div>
                     ))}

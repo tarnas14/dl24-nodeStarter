@@ -21,11 +21,15 @@ const map = range(41).map(y => range(41).map(x => {
     return cellDefinition;
 }));
 
-setInterval(() => {
-    map[getRandomInt(0, 41)][getRandomInt(0, 41)].color = 'red';
-
-    gridder.grid(map);
-}, 100);
+gridder.newGrid(map, () => {
+    setInterval(() => {
+        gridder.updateCell({
+            x: getRandomInt(0, 41),
+            y: getRandomInt(0, 41),
+            color: 'red'
+        });
+    }, 100)
+});
 
 const gameLoop = (service) => {
     service.nextTurn();

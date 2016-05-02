@@ -27,10 +27,18 @@ const server = app.listen(PORT, () => {
 
 const io = socketIo.listen(server);
 
-app.post('/grid', (req, res) => {
+app.post('/newGrid', (req, res) => {
     const gridDefinition = req.body;
 
-    io.emit('grid', gridDefinition);
+    io.emit('newGrid', gridDefinition);
+
+    res.sendStatus(200);
+});
+
+app.post('/updateCell', (req, res) => {
+    const cellUpdate = req.body;
+
+    io.emit('updateCell', cellUpdate);
 
     res.sendStatus(200);
 });
