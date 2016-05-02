@@ -20,18 +20,21 @@ const App = React.createClass({
         socket.on('newLogEntry', (newEntry) => {
             console.log(newEntry);
             this.setState(oldState => {
-                if (!oldState.selected && oldState.displayedEntries.length >= 50) {
-                    oldState.displayedEntries.shift();
-                }
-
                 const entryWithGuid = {
                     ...newEntry,
                     guid: guid()
                 };
 
+                const entries = [entryWithGuid, ...oldState.entries];
+                const displayedEntries = [entryWithGuid, ...oldState.displayedEntries];
+
+                if (!oldState.selected && displayedEntries.length > 50) {
+                    displayedEntries.pop();
+                }
+
                 return {
-                    entries: [...oldState.entries, entryWithGuid],
-                    displayedEntries: [...oldState.displayedEntries, entryWithGuid]
+                    entries,
+                    displayedEntries
                 };
             });
         });
@@ -99,12 +102,14 @@ const App = React.createClass({
     },
 
     renderLog () {
+        let entriesToDisplay = [...this.state.displayedEntries];
+        entriesToDisplay.reverse();
         return (
             <div className="panel-group">
                 {this.state.displayedEntries.length}<br />
                 <button onClick={this.loadPrevious}>previous</button>
                 <button onClick={this.reset}>reset to real time</button>
-                {this.state.displayedEntries.map(logEntry => (
+                {entriesToDisplay.map(logEntry => (
                     <div className="panel panel-default">
                         <div className="panel-heading">
                             <h4 className="panel-title">
@@ -131,20 +136,18 @@ const App = React.createClass({
 
     loadPrevious () {
         this.setState(oldState => {
-            const firstDisplayedIndex = oldState.entries.indexOf(oldState.displayedEntries[0]);
-            const displayedElements = oldState.entries.length - firstDisplayedIndex;
+            const lastDisplayedIndex = oldState.entries.indexOf(oldState.displayedEntries[oldState.displayedEntries.length - 1]);
 
             return {
-                displayedEntries: oldState.entries.slice(-(displayedElements + 50))
+                displayedEntries: oldState.entries.slice(0, lastDisplayedIndex + 51)
             };
         });
     },
 
     reset () {
         this.setState(oldState => {
-            console.log(oldState.entries.slice(-50));
             return {
-                displayedEntries: oldState.entries.slice(-50),
+                displayedEntries: oldState.entries.slice(0, 50),
                 selected: null
             };
         });
