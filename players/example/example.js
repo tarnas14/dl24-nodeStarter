@@ -37,7 +37,7 @@ const gameLoop = (service) => {
 };
 
 const emitter = dl24client(config, gameLoop);
-emitter.on('error', (error) => logger.info(error));
+emitter.on('error', (error) => logger.error(error));
 emitter.on('waiting', (millisecondsTillNextTurn) => logger.info('waiting', {millisecondsTillNextTurn}));
 emitter.on('receivedFromServer', (data) => logger.info('receivedFromServer', data));
 emitter.on('sentToServer', (command) => logger.info('sentToServer', command));
