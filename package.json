@@ -4,7 +4,7 @@
   "description": "client and utilities for dl24 lite, an internal hackathon organized by Future Processing, written in node because hey why not",
   "main": "dl24client.js",
   "scripts": {
-    "example": "node --harmony_destructuring example",
+    "example": "node --harmony_destructuring players/example/example",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

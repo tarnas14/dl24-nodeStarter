@@ -2,8 +2,9 @@
 const namespace = process.argv[2] || 'example';
 
 const dl24client = require('../../dl24client');
-const logger = require('../..logger')(namespace);
-const gridder = require('../..gridder')(namespace);
+const logger = require('../../logger')(namespace);
+const gridder = require('../../gridder')(namespace);
+const config = require('./config');
 
 const range = (numberOfElements) => {
     return Array.apply(null, Array(numberOfElements)).map((_, i) => i);
@@ -35,7 +36,7 @@ const gameLoop = (service) => {
     service.nextTurn();
 };
 
-const emitter = dl24client({username: 'zenek', password: 'gitara'}, gameLoop);
+const emitter = dl24client(config, gameLoop);
 emitter.on('error', (error) => logger.info(error));
 emitter.on('waiting', (millisecondsTillNextTurn) => logger.info('waiting', {millisecondsTillNextTurn}));
 emitter.on('receivedFromServer', (data) => logger.info('receivedFromServer', data));
