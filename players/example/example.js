@@ -1,9 +1,9 @@
 'use strict';
 const namespace = process.argv[2] || 'example';
 
-const dl24client = require('./dl24client');
-const logger = require('./logger')(namespace);
-const gridder = require('./gridder')(namespace);
+const dl24client = require('../../dl24client');
+const logger = require('../..logger')(namespace);
+const gridder = require('../..gridder')(namespace);
 
 const range = (numberOfElements) => {
     return Array.apply(null, Array(numberOfElements)).map((_, i) => i);
@@ -28,7 +28,7 @@ gridder.newGrid(map, () => {
             y: getRandomInt(0, 41),
             color: 'red'
         });
-    }, 100)
+    }, 100);
 });
 
 const gameLoop = (service) => {
