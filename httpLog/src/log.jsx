@@ -15,20 +15,18 @@ const Log = React.createClass({
 
     componentWillReceiveProps (nextProps) {
         if (nextProps.entries !== this.props.entries) {
-            const filteredEntries = nextProps.entries.filter(entry => this.typeIsVisible(entry.type));
-
             if (this.state.selected) {
-                const lastDisplayedIndex = filteredEntries.indexOf(this.state.displayedEntries[0]);
+                const lastDisplayedIndex = nextProps.entries.indexOf(this.state.displayedEntries[0]);
 
                 this.setState({
-                    displayedEntries: filteredEntries.slice(0, this.state.displayedEntries.length + lastDisplayedIndex)
+                    displayedEntries: nextProps.entries.slice(0, this.state.displayedEntries.length + lastDisplayedIndex)
                 });
 
                 return;
             }
 
             this.setState({
-                displayedEntries: filteredEntries.slice(0, this.state.displayedEntries.length > 50 ? this.state.displayedEntries.length : 50)
+                displayedEntries: nextProps.entries.slice(0, this.state.displayedEntries.length > 50 ? this.state.displayedEntries.length : 50)
             });
         }
     },
@@ -132,7 +130,7 @@ const Log = React.createClass({
     },
 
     render () {
-        let entriesToDisplay = [...this.state.displayedEntries];
+        let entriesToDisplay = this.state.displayedEntries.filter(entry => this.typeIsVisible(entry.type));
         entriesToDisplay.reverse();
         return (
             <div className="panel-group">
