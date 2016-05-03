@@ -15,19 +15,22 @@ const post = (data) => {
     });
 };
 
-const LEVELS = {
-    INFO: 'info'
-};
-
 const loggerFactory = (namespace) => {
     return {
         info (type, logEntry) {
             post({
                 timestamp: new Date(),
-                level: LEVELS.INFO,
                 type,
                 namespace,
                 data: logEntry
+            });
+        },
+        error (errorEntry) {
+            post({
+                timestamp: new Date(),
+                type: 'error',
+                namespace,
+                data: errorEntry
             });
         }
     };

@@ -148,7 +148,7 @@ const Log = React.createClass({
                 </div>
                 {entriesToDisplay.map(logEntry => (
                     <div className="panel panel-default">
-                        <div className="panel-heading">
+                        <div className="panel-heading" style={{backgroundColor: logEntry.type === 'error' ? '#f2dede' : '#f5f5f5'}}>
                             <h4 className="panel-title">
                                 <a
                                     data-target={`#${logEntry.guid}`}
