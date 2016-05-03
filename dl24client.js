@@ -39,6 +39,10 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                 let lines = [];
 
                 connection.on('data', function commandHandler (data) {
+                    if (data === '\n') {
+                        return;
+                    }
+
                     const saneData = data.sanitized();
 
                     if (saneData.startsWith('failed')) {
@@ -89,17 +93,32 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
     connection.on('data', function loginHandler (data) {
         if (data.sanitized() === 'login') {
             connection.write(username.withTerminator());
+
             return;
         }
 
         if (data.sanitized() === 'pass') {
-            connection.write(password.withTerminator());
+            connection.write(password);
+
+            return;
         }
 
         if (data.sanitized() === 'ok') {
             connection.removeListener('data', loginHandler);
             gameLoop(service);
         }
+    });
+
+    connection.on('data', (data) => {
+        eventEmitter.emit('rawData', {rawData: data, sanitized: data.sanitized()});
+    });
+
+    connection.on('error', (error) => {
+        console.log('error', error);
+    });
+
+    connection.on('close', () => {
+        console.log('connection closed wtf');
     });
 
     return eventEmitter;

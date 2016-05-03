@@ -5,6 +5,7 @@
   "main": "dl24client.js",
   "scripts": {
     "example": "node --harmony_destructuring players/example/example",
+    "seawars": "node --harmony_destructuring players/seaWars/server",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
