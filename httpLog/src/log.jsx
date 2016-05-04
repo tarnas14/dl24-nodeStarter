@@ -7,7 +7,7 @@ const Log = React.createClass({
 
     getInitialState () {
         return {
-            selected: null,
+            selected: [],
             displayedEntries: this.props.entries.slice(0, 50),
             typesToHide: []
         };
@@ -15,7 +15,7 @@ const Log = React.createClass({
 
     componentWillReceiveProps (nextProps) {
         if (nextProps.entries !== this.props.entries) {
-            if (this.state.selected) {
+            if (this.state.selected.length) {
                 const lastDisplayedIndex = nextProps.entries.indexOf(this.state.displayedEntries[0]);
 
                 this.setState({
@@ -31,17 +31,22 @@ const Log = React.createClass({
         }
     },
 
-    toggleSelected (logEntry) {
-        if (!this.state.selected) {
-            this.setState({
-                selected: logEntry
+    toggleEntry (entryGuid) {
+        if (this.state.selected.indexOf(entryGuid) === -1) {
+            this.setState(oldState => {
+                return {
+                    selected: [...oldState.selected, entryGuid]
+                };
             });
 
             return;
         }
 
-        this.setState({
-            selected: null
+        this.setState(oldState => {
+            const entryIndex = oldState.selected.indexOf(entryGuid);
+            return {
+                selected: [...oldState.selected.slice(0, entryIndex), ...oldState.selected.slice(entryIndex + 1)] || []
+            };
         });
     },
 
@@ -58,7 +63,7 @@ const Log = React.createClass({
     reset () {
         this.setState({
             displayedEntries: this.props.entries.slice(0, 50),
-            selected: null
+            selected: []
         }, () => {
             const selectedElement = document.querySelector('.collapse.in');
             if (selectedElement) {
@@ -152,7 +157,7 @@ const Log = React.createClass({
                                     data-target={`#${logEntry.guid}`}
                                     data-toggle="collapse"
                                     href="#"
-                                    onClick={this.toggleSelected.bind(null, logEntry)}
+                                    onClick={this.toggleEntry.bind(null, logEntry.guid)}
                                 >
                                     {logEntry.timestamp} {logEntry.type}
                                 </a>

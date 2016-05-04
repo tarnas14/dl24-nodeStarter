@@ -4,6 +4,7 @@ import io from 'socket.io-client';
 import Rx from 'rxjs/Rx';
 
 import Grid from './grid';
+import eventTypes from './eventTypes';
 
 const App = React.createClass({
     getInitialState () {
@@ -16,12 +17,7 @@ const App = React.createClass({
         const socket = io();
 
         socket.on('newGrid', (gridDefinition) => {
-            console.log('new grid', gridDefinition);
-
-            this.setGrid({
-                ...gridDefinition,
-                gridChangeStream: new Rx.Subject()
-            });
+            this.setGrid(gridDefinition);
         });
 
         socket.on('updateCell', (data) => {
@@ -32,25 +28,31 @@ const App = React.createClass({
                 return;
             }
 
-            grid.gridChangeStream.next(data.cell);
+            grid.gridChangeStream.next({type: eventTypes.update, cell: data.cell});
         });
     },
 
     setGrid (gridDefinition) {
-        this.setState(oldState => {
-            const gridToUpdate = oldState.grids.find(grid => grid.name === gridDefinition.name);
-            if (gridToUpdate) {
-                const gridToUpdateIndex = oldState.grids.indexOf(gridToUpdate);
+        const mapSize = gridDefinition.gridDefinition.map.length;
+        console.log(`new grid '${gridDefinition.name}' ${mapSize}x${mapSize}`);
 
-                return {
-                    grids: [...oldState.grids.slice(0, gridToUpdateIndex), gridDefinition, ...oldState.grids.slice(gridToUpdateIndex + 1)]
-                };
-            }
+        const start = (new Date()).getTime();
 
-            return {
-                grids: [...oldState.grids, gridDefinition]
-            };
-        });
+        const gridToUpdate = this.state.grids.find(grid => grid.name === gridDefinition.name);
+
+        if (gridToUpdate) {
+            const gridToUpdateIndex = this.state.grids.indexOf(gridToUpdate);
+
+            this.setState({
+                grids: [...this.state.grids.slice(0, gridToUpdateIndex), {...gridToUpdate, ...gridDefinition}, ...this.state.grids.slice(gridToUpdateIndex + 1)]
+            }, () => gridToUpdate.gridChangeStream.next({type: eventTypes.clear}));
+
+            return;
+        }
+
+        this.setState({
+            grids: [...this.state.grids, {...gridDefinition, gridChangeStream: new Rx.Subject()}]
+        }, () => console.log(`phew, that took ${(new Date()).getTime() - start}ms`));
     },
 
     render () {

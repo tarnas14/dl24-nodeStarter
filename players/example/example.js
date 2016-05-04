@@ -22,7 +22,7 @@ const map = range(41).map(y => range(41).map(x => {
     return cellDefinition;
 }));
 
-gridder.newGrid(map, () => {
+gridder.newGrid({map, styles: {background: 'green', side: 11}}, () => {
     setInterval(() => {
         gridder.updateCell({
             x: getRandomInt(0, 41),
@@ -41,3 +41,4 @@ emitter.on('error', (error) => logger.error(error));
 emitter.on('waiting', (millisecondsTillNextTurn) => logger.info('waiting', {millisecondsTillNextTurn}));
 emitter.on('receivedFromServer', (data) => logger.info('receivedFromServer', data));
 emitter.on('sentToServer', (command) => logger.info('sentToServer', command));
+emitter.on('debug', data => logger.debug(data));

@@ -20,18 +20,16 @@ const loggerFactory = (namespace) => {
         info (type, logEntry) {
             post({
                 timestamp: new Date(),
-                type,
                 namespace,
+                type,
                 data: logEntry
             });
         },
         error (errorEntry) {
-            post({
-                timestamp: new Date(),
-                type: 'error',
-                namespace,
-                data: errorEntry
-            });
+            this.info('error', errorEntry);
+        },
+        debug (debugEntry) {
+            this.info('debug', debugEntry);
         }
     };
 };

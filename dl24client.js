@@ -27,16 +27,30 @@ const getErrorFromServerResponse = (errorResponse) => {
     };
 };
 
+let turn = 1;
+
 const dl24client = ({port, host, username, password}, gameLoop) => {
     const eventEmitter = new EventEmitter();
     const connection = net.createConnection(port, host);
     connection.setEncoding('utf8');
 
+    const emitDebug = (debugData, description) => {
+        eventEmitter.emit('debug', {
+            description,
+            debugData
+        });
+    };
+
+    const startGameLoop = (service) => {
+        console.log(`turn ${turn++}`);
+        gameLoop(service);
+    };
+
     const service = {
-        sendCommand (command, callback) {
+        sendCommandWithSingleLineResponse (command, callback) {
             if (command.expectedLines !== 0) {
-                let serverResponseLineCounter = command.expectedLines;
-                let lines = [];
+                let responseLine = '';
+                let waitingTillNextTurn = false;
 
                 connection.on('data', function commandHandler (data) {
                     if (data === '\n') {
@@ -48,64 +62,118 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                     if (saneData.startsWith('failed')) {
                         connection.removeListener('data', commandHandler);
 
-                        setTimeout(gameLoop.bind(null, service), 1000);
+                        setTimeout(startGameLoop.bnd(null, this), 1000);
                         eventEmitter.emit('error', getErrorFromServerResponse(saneData));
 
                         return;
                     }
 
-                    if (saneData.startsWith('waiting')) {
+                    if (waitingTillNextTurn && saneData === 'ok') {
                         connection.removeListener('data', commandHandler);
-                        const millisecondsTillNextTurn = getMillisecondsTillNextTurnFromServerResponse(saneData);
-
-                        setTimeout(gameLoop.bind(null, service), millisecondsTillNextTurn);
-                        eventEmitter.emit('waiting', millisecondsTillNextTurn);
+                        startGameLoop(service);
 
                         return;
                     }
 
                     if (saneData.startsWith('ok')) {
-                        lines = saneData.split('\n').map((line) => line.sanitized());
-                        lines.splice(lines.indexOf('ok'), 1);
-                        serverResponseLineCounter -= lines.length;
+                        responseLine = saneData.split('\n').map((line) => line.sanitized()).slice(1)[0];
                     } else {
-                        lines.push(saneData);
-                        serverResponseLineCounter -= 1;
+                        responseLine = saneData;
                     }
 
-                    if (serverResponseLineCounter === 0) {
+                    if (responseLine && responseLine.startsWith('waiting')) {
+                        emitDebug({d: 'waitingTillNextTurn', responseLine});
+                        waitingTillNextTurn = true;
+                        const millisecondsTillNextTurn = getMillisecondsTillNextTurnFromServerResponse(responseLine);
+
+                        eventEmitter.emit('waiting', millisecondsTillNextTurn);
+
+                        return;
+                    }
+
+                    if (responseLine) {
                         connection.removeListener('data', commandHandler);
-                        eventEmitter.emit('receivedFromServer', lines, command);
-                        callback(lines);
+                        eventEmitter.emit('receivedFromServer', responseLine, command);
+                        callback(responseLine);
 
                         return;
                     }
                 });
             }
 
-            connection.write(command.serverCommand.withTerminator(), () => eventEmitter.emit('sentToServer', command));
+            connection.write(command.withTerminator(), () => eventEmitter.emit('sentToServer', command));
+        },
+        sendCommandWithMultipleLineResponse (command, callback) {
+            let lines = [];
+
+            connection.on('data', function commandHandler (data) {
+                if (data === '\n') {
+                    return;
+                }
+
+                const saneData = data.sanitized();
+
+                if (saneData.startsWith('failed')) {
+                    connection.removeListener('data', commandHandler);
+
+                    setTimeout(gameLoop.bind(null, service), 1000);
+                    eventEmitter.emit('error', getErrorFromServerResponse(saneData));
+
+                    return;
+                }
+
+                if (saneData.startsWith('ok')) {
+                    const responseLines = saneData.split('\n').map((line) => line.sanitized()).slice(1);
+                    const numberOfExpectedLiens = parseInt(responseLines[0], 10);
+                    if (numberOfExpectedLiens === 0) {
+                        connection.removeListener('data', commandHandler);
+                        eventEmitter.emit('receivedFromServer', lines, command);
+                        callback(lines);
+                    }
+                    lines = responseLines.slice(1);
+                } else {
+                    const responseLines = saneData.split('\n').map((line) => line.sanitized());
+                    const numberOfExpectedLiens = parseInt(responseLines[0], 10);
+                    if (numberOfExpectedLiens === 0) {
+                        connection.removeListener('data', commandHandler);
+                        eventEmitter.emit('receivedFromServer', lines, command);
+                        callback(lines);
+                    }
+                    lines = responseLines.slice(1);
+                }
+
+                if (lines.length) {
+                    connection.removeListener('data', commandHandler);
+                    eventEmitter.emit('receivedFromServer', lines, command);
+                    callback(lines);
+
+                    return;
+                }
+            });
+
+            connection.write(command.withTerminator(), () => eventEmitter.emit('sentToServer', command));
         },
         nextTurn () {
-            this.sendCommand({serverCommand: 'wait', expectedLines: 1}, () => {});
+            this.sendCommandWithSingleLineResponse('wait', () => {});
         }
     };
 
     connection.on('data', function loginHandler (data) {
         if (data.sanitized() === 'login') {
-            connection.write(username.withTerminator());
+            connection.write(username.withTerminator(), () => eventEmitter.emit('sentToServer', username));
 
             return;
         }
 
         if (data.sanitized() === 'pass') {
-            connection.write(password);
+            connection.write(password.withTerminator(), () => eventEmitter.emit('sentToServer', password));
 
             return;
         }
 
         if (data.sanitized() === 'ok') {
             connection.removeListener('data', loginHandler);
-            gameLoop(service);
+            startGameLoop(service);
         }
     });
 
