@@ -174,6 +174,7 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
 
     return {
         init (worldDescriptionResponse) {
+            console.log(worldDescriptionResponse);
             const [side, wheelBarrowPrice, goodPrognosis, turnTime, commandLimit] = worldDescriptionResponse.split(' ');
 
             state = Object.assign({}, getInitialState(), {
@@ -184,7 +185,7 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                 commandLimit: parseInt(commandLimit, 10)
             });
 
-            console.log('initing', state.side);
+            console.log('initing', side, state.side);
 
             state.map = range(state.side).map(y => range(state.side).map(x => {
                 return getLandTile(x, y);

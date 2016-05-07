@@ -18,8 +18,8 @@ const getMillisecondsTillNextTurnFromServerResponse = (waitingResponse) => {
 };
 
 const getErrorFromServerResponse = (errorResponse) => {
-    console.log(errorResponse);
-    const errorRegex = /^failed (\d+) ([\w|\s]+)$/;
+    console.log('error resp', errorResponse);
+    const errorRegex = /^failed (\d+) (.+)/;
     try {
         const [, code, message] = errorRegex.exec(errorResponse);
 
@@ -39,28 +39,6 @@ let turn = 1;
 
 const dl24client = ({port, host, username, password}, gameLoop) => {
     const eventEmitter = new EventEmitter();
-    const waitTillNextTurn = (waitResponse, connection, commandHandler, callback) => {
-        connection.removeListener('data', commandHandler);
-        const millisecondsTillNextTurn = getMillisecondsTillNextTurnFromServerResponse(waitResponse);
-
-        eventEmitter.emit('waiting', millisecondsTillNextTurn);
-
-        connection.on('data', function waitingHandler (waitingData) {
-            if (waitingData === '\n') {
-                return;
-            }
-
-            connection.removeListener('data', waitingHandler);
-            if (waitingData.sanitized() !== 'ok') {
-                eventEmitter.emit('error', `was waiting for next turn, got ${waitingData}`);
-            }
-
-            callback();
-        });
-
-        return;
-    };
-
     const connection = net.createConnection(port, host);
     connection.setEncoding('utf8');
 
@@ -105,9 +83,13 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                     connection.removeListener('data', commandHandler);
 
                     setTimeout(gameLoop.bind(null, service), 1000);
-                    eventEmitter.emit('error', getErrorFromServerResponse(saneData));
+                    eventEmitter.emit('error', getErrorFromServerResponse(loweredSaneData));
 
                     return;
+                }
+
+                if (loweredSaneData.startsWith('waiting')) {
+                    console.log('got waiting mid multiple query, FUCK');
                 }
 
                 let responseLines = [];
@@ -183,9 +165,7 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                 }
 
                 if (loweredSaneData.startsWith('waiting')) {
-                    waitTillNextTurn(saneData, connection, commandHandler, startGameLoop.bind(null, service));
-
-                    return;
+                    console.log('got waiting mid command, FUCK');
                 }
 
                 const oks = saneData.split('\n').map((line) => line.sanitized());
@@ -195,6 +175,7 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                 expectedOks -= oks.length;
 
                 if (expectedOks === 0) {
+                    console.log(oks);
                     connection.removeListener('data', commandHandler);
                     callback();
 

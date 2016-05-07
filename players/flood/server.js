@@ -144,9 +144,9 @@ const gameLoop = (service) => {
                         expectedNumberOfLines: 1
                     };
                 }),
-                () => {
+                (takeResp) => {
                     // leave
-                    console.log('leave');
+                    console.log(`${takeResp} => leave`);
                     service.command({
                         serverCommand: 'LEAVE',
                         args: workersThatShouldLeaveStuff.map(worker => `${worker.id} 1`)
