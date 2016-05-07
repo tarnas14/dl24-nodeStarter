@@ -1,8 +1,6 @@
 'use strict';
 const theGameFactory = require('./theGameFactory');
 const tileTypes = require('./tileTypes');
-const COLOURS = require('./colours');
-const workerStatuses = require('./workerStatuses');
 
 const namespace = process.argv[2] || 'flood';
 const dl24client = require('../../dl24client');
@@ -75,9 +73,12 @@ const gameLoop = (service) => {
                         return worker.bags && theGame.isStack(tile);
                     };
 
-                    const workersThatShouldTakeStuff = theGame.getWorkers().filter(worker => shouldTakeBags(worker));
+                    const scout = theGame.getScout();
+                    const workersWithoutScout = scout ? theGame.getWorkers().filter(worker => worker.id !== scout.id) : theGame.getWorkers();
 
-                    const workersThatShouldLeaveStuff = theGame.getWorkers().filter(worker => shouldLeaveBags(worker));
+                    const workersThatShouldTakeStuff = workersWithoutScout.filter(worker => shouldTakeBags(worker));
+
+                    const workersThatShouldLeaveStuff = workersWithoutScout.filter(worker => shouldLeaveBags(worker));
 
                     const workerMoves = [];
                     workersThatShouldTakeStuff.forEach(worker => {
@@ -94,7 +95,7 @@ const gameLoop = (service) => {
                         workerMoves.push(vector);
                     });
 
-                    theGame.getWorkers()
+                    workersWithoutScout
                         .filter(worker => !shouldLeaveBags(worker) && !shouldTakeBags(worker))
                         .forEach(worker => {
                             const vector = worker.bags ? theGame.vectorToStack(worker) : theGame.vectorToMagazine(worker);
@@ -103,32 +104,43 @@ const gameLoop = (service) => {
                             workerMoves.push(vector);
                         });
 
-                    //take
-                    service.multipleQueries(
-                        workersThatShouldTakeStuff.map(workerThatShouldTakeStuff => {
-                            return {
-                                queryText: `TAKE ${workerThatShouldTakeStuff.id} 1`,
-                                expectedNumberOfLines: 1
-                            };
-                        }),
-                        () => {
-                            //leave
-                            service.command({
-                                serverCommand: 'LEAVE',
-                                args: workersThatShouldLeaveStuff.map(worker => `${worker.id} 1`)
-                            }, () => {
-                                // move
-                                service.command({
-                                    serverCommand: 'MOVE',
-                                    args: workerMoves.map(workerMove => `${workerMove.workerId} ${workerMove.x} ${workerMove.y}`)
-                                }, () => {
-                                    service.nextTurn();
-                                });
-                            });
-                        }
-                    );
+                    //look around with scout
+                    service.multilineResponseQuery(`LOOK_AROUND ${scout.id}`, 14, scoutResponse => {
+                        theGame.chartScoutData(scout, scoutResponse);
 
-                    // const scout = theGame.getScout();
+                        const vector = theGame.vectorToClosestObject(scout);
+                        const destinationReached = vector.x === 0 && vector.y === 0;
+                        //move toward the closest object
+                        service.command({
+                            serverCommand: 'MOVE',
+                            args: destinationReached ? [] : [`${scout.id} ${vector.x} ${vector.y}`]
+                        }, () => {
+                            //take
+                            service.multipleQueries(
+                                workersThatShouldTakeStuff.map(workerThatShouldTakeStuff => {
+                                    return {
+                                        queryText: `TAKE ${workerThatShouldTakeStuff.id} 1`,
+                                        expectedNumberOfLines: 1
+                                    };
+                                }),
+                                () => {
+                                    //leave
+                                    service.command({
+                                        serverCommand: 'LEAVE',
+                                        args: workersThatShouldLeaveStuff.map(worker => `${worker.id} 1`)
+                                    }, () => {
+                                        // move
+                                        service.command({
+                                            serverCommand: 'MOVE',
+                                            args: workerMoves.map(workerMove => `${workerMove.workerId} ${workerMove.x} ${workerMove.y}`)
+                                        }, () => {
+                                            service.nextTurn();
+                                        });
+                                    });
+                                }
+                            );
+                        });
+                    });
 
                     // if (!scout) {
                     //     service.nextTurn();

@@ -74,12 +74,31 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
         const moveX = pointTo.x - pointFrom.x;
         const moveY = pointTo.y - pointFrom.y;
 
-        const vector = {
-            x: moveX < 0 ? -1 : (moveX ? 1 : 0),
-            y: moveY < 0 ? -1 : (moveY ? 1 : 0)
-        };
+        return {x: moveX, y: moveY};
+    };
 
-        return vector;
+    const normalize = vector => {
+        return {
+            x: vector.x < 0 ? -1 : (vector.x ? 1 : 0),
+            y: vector.y < 0 ? -1 : (vector.y ? 1 : 0)
+        };
+    };
+
+    const closestObject = (pointFrom, objects) => {
+        let minDistance = 99999;
+        let closest = null;
+
+        objects.forEach(object => {
+            const vector = getVector(pointFrom, object.coordinates);
+
+            const distance = Math.abs(vector.x) + Math.abs(vector.y);
+            if (distance < minDistance) {
+                minDistance = distance;
+                closest = object;
+            }
+        });
+
+        return closest;
     };
 
     return {
@@ -133,7 +152,7 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             objects.forEach(object => {
                 for (let y = 0; y < object.size.height; y++) {
                     for (let x = 0; x < object.size.width; x++) {
-                        const type = object.magazine ? tileTypes.magazine : tileTypes.object;
+                        const type = object.magazine ? tileTypes.magazine : tileTypes.myObject;
 
                         const tile = {
                             x: object.coordinates.x + x,
@@ -201,11 +220,11 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
         getTile ({x, y}) {
             return state.map[y][x];
         },
-        vectorToStack (point) {
-            return getVector(point, state.stackCoordinates);
+        vectorToStack (pointFrom) {
+            return normalize(getVector(pointFrom, state.stackCoordinates));
         },
-        vectorToMagazine (point) {
-            return getVector(point, state.magazines[0].coordinates);
+        vectorToMagazine (pointFrom) {
+            return normalize(getVector(pointFrom, state.magazines[0].coordinates));
         },
         isStack ({x, y}) {
             return x === state.stackCoordinates.x && y === state.stackCoordinates.y;
@@ -253,7 +272,9 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                         updateTile(tile);
                         break;
                     case 'x':
-                        tile.tileType = tileTypes.object;
+                        tile.tileType = state.map[tile.y][tile.x].tileType === tileTypes.myObject
+                            ? tileTypes.myObject
+                            : tileTypes.object;
                         updateTile(tile);
                         break;
                     default:
@@ -277,6 +298,9 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
         },
         isFlooding () {
             return state.floodStatus.height;
+        },
+        vectorToClosestObject (pointFrom) {
+            return normalize(getVector(pointFrom, closestObject(pointFrom, state.objects).coordinates));
         }
     };
 };

@@ -159,10 +159,10 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                 if (saneData.startsWith('failed')) {
                     connection.removeListener('data', commandHandler);
 
-                    setTimeout(startGameLoop.bind(null, service), 1000);
+                    // setTimeout(startGameLoop.bind(null, service), 1000);
                     eventEmitter.emit('error', getErrorFromServerResponse(saneData));
 
-                    return;
+                    // return;
                 }
 
                 if (saneData.startsWith('waiting')) {
