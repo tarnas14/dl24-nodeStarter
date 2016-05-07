@@ -166,6 +166,12 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
             this.singleLineResponseQuery('wait', () => {});
         },
         command ({serverCommand, args}, callback) {
+            if (!args.length) {
+                callback();
+
+                return;
+            }
+
             let expectedOks = args.length;
             let waitingTillNextTurn = false;
 

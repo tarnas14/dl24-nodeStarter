@@ -101,7 +101,7 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             gridder.newGrid({
                 map: state.map,
                 styles: {
-                    side: 5,
+                    side: 8,
                     background: COLOURS[tileTypes.land]
                 }
             });

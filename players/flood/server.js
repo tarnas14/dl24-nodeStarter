@@ -52,7 +52,6 @@ const gameLoop = (service) => {
                         });
 
                         if (!args.length) {
-                            console.log('not length');
                             service.nextTurn();
 
                             return;
@@ -104,53 +103,31 @@ const gameLoop = (service) => {
                         });
 
                     //leave
-                    // service.command({
-                    //     serverCommand: 'LEAVE',
-                    //     args: workersThatShouldLeaveStuff.map(worker => `${worker.id} 1`)
-                    // }, () => {
-                    //     // move
-                    //     service.command({
-                    //         serverCommand: 'MOVE',
-                    //         args: workerMoves.map(workerMove => `${workerMove.workerId} ${workerMove.x} ${workerMove.y}`)
-                    //     }, () => {
+                    service.command({
+                        serverCommand: 'LEAVE',
+                        args: workersThatShouldLeaveStuff.map(worker => `${worker.id} 1`)
+                    }, () => {
+                        // move
+                        service.command({
+                            serverCommand: 'MOVE',
+                            args: workerMoves.map(workerMove => `${workerMove.workerId} ${workerMove.x} ${workerMove.y}`)
+                        }, () => {
+                            const worker = workersThatShouldTakeStuff[0];
+                            const tile = theGame.getTile(worker);
 
-                    //     });
-                    // });
-
-                    const worker = theGame.getWorkers()[1];
-                    const tile = theGame.getTile(worker);
-
-                    if (!worker.bags) {
-                        if (tile.tileType === tileTypes.magazine) {
-                            service.singleLineResponseQuery(`TAKE ${worker.id} 1`, () => {
-                                const vector = theGame.vectorToStack(worker);
-                                service.command({serverCommand: 'MOVE', args: [`${worker.id} ${vector.x} ${vector.y}`]}, () => {
-                                    service.nextTurn();
+                            //take
+                            if (!worker.bags && tile.tileType === tileTypes.magazine) {
+                                service.singleLineResponseQuery(`TAKE ${worker.id} 1`, () => {
+                                    const vector = theGame.vectorToStack(worker);
+                                    service.command({serverCommand: 'MOVE', args: [`${worker.id} ${vector.x} ${vector.y}`]}, () => {
+                                        service.nextTurn();
+                                    });
                                 });
-                            });
-                        } else {
-                            const vector = theGame.vectorToMagazine(worker);
-
-                            service.command({serverCommand: 'MOVE', args: [`${worker.id} ${vector.x} ${vector.y}`]}, () => {
+                            } else {
                                 service.nextTurn();
-                            });
-                        }
-                    } else {
-                        if (theGame.isStack(tile)) {
-                            service.command({serverCommand: 'LEAVE', args: [`${worker.id} 1`]}, () => {
-                                const vector = theGame.vectorToMagazine(worker);
-
-                                service.command({serverCommand: 'MOVE', args: [`${worker.id} ${vector.x} ${vector.y}`]}, () => {
-                                    service.nextTurn();
-                                });
-                            });
-                        } else {
-                            const vector = theGame.vectorToStack(worker);
-                            service.command({serverCommand: 'MOVE', args: [`${worker.id} ${vector.x} ${vector.y}`]}, () => {
-                                service.nextTurn();
-                            });
-                        }
-                    }
+                            }
+                        });
+                    });
 
                     // const scout = theGame.getScout();
 
