@@ -10,19 +10,13 @@ import guid from './guid';
 const App = React.createClass({
     getInitialState () {
         return {
-            entries: [],
-            counter: 0
+            entries: []
         };
     },
 
     componentDidMount () {
         const socket = io();
         socket.on('newLogEntry', (newEntry) => {
-            if (this.state.counter % 200 === 0) {
-                console.clear();
-            }
-
-            console.log(newEntry);
             this.setState(oldState => {
                 const entryWithGuid = {
                     ...newEntry,
@@ -30,7 +24,6 @@ const App = React.createClass({
                 };
 
                 return {
-                    counter: oldState.counter + 1,
                     entries: [entryWithGuid, ...oldState.entries.slice(0, 300)]
                 };
             });

@@ -199,8 +199,39 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                 connection.write(commandWithArgs.withTerminator(), () => eventEmitter.emit('sentToServer', commandWithArgs));
             });
         },
-        weirdShit ({serverCommand, args, expectedNumberOfLines}, callback) {
+        multipleQueries (queries, callback) {
+            const queryStatus = {
+                pending: '',
+                inProgress: '1',
+                done: '2'
+            };
 
+            const queryStack = queries.map(query => {
+                return {
+                    queryText: query.queryText,
+                    expectedNumberOfLines: query.expectedNumberOfLines,
+                    status: queryStatus.pending
+                };
+            });
+
+            const myInterval = setInterval(() => {
+                if (!queryStack.find(query => query.status !== queryStatus.done)) {
+                    clearInterval(myInterval);
+
+                    callback(queryStack.map(query => query.response));
+
+                    return;
+                }
+
+                if (!queryStack.find(query => query.status === queryStatus.inProgress)) {
+                    const queryToDo = queryStack.find(query => query.status === queryStatus.pending);
+                    queryToDo.status = queryStatus.inProgress;
+                    this.multilineResponseQuery(queryToDo.queryText, queryToDo.expectedNumberOfLines, response => {
+                        queryToDo.response = response;
+                        queryToDo.status = queryStatus.done;
+                    });
+                }
+            }, 50);
         }
     };
 

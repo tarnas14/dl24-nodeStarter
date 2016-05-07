@@ -9,11 +9,16 @@ const Log = React.createClass({
         return {
             selected: [],
             displayedEntries: this.props.entries.slice(0, 50),
-            typesToHide: []
+            typesToHide: [],
+            stopped: false
         };
     },
 
     componentWillReceiveProps (nextProps) {
+        if (this.state.stopped) {
+            return;
+        }
+
         if (nextProps.entries !== this.props.entries) {
             if (this.state.selected.length) {
                 const lastDisplayedIndex = nextProps.entries.indexOf(this.state.displayedEntries[0]);
@@ -134,6 +139,15 @@ const Log = React.createClass({
         });
     },
 
+    toggleStop () {
+        this.setState(oldState => {
+            return {
+                stopped: !oldState.stopped,
+                displayedEntries: oldState.stopped ? [] : oldState.displayedEntries
+            };
+        });
+    },
+
     render () {
         let entriesToDisplay = this.state.displayedEntries.filter(entry => this.typeIsVisible(entry.type));
         entriesToDisplay.reverse();
@@ -144,6 +158,7 @@ const Log = React.createClass({
                         {this.state.displayedEntries.length}<br />
                         <button onClick={this.loadPrevious}>previous</button>
                         <button onClick={this.reset}>reset to real time</button>
+                        <button onClick={this.toggleStop}>{this.state.stopped ? 'resume' : 'STAHP'}</button>
                     </div>
                     <div className="pull-right">
                         {this.renderFilters()}
@@ -159,7 +174,7 @@ const Log = React.createClass({
                                     href="#"
                                     onClick={this.toggleEntry.bind(null, logEntry.guid)}
                                 >
-                                    {logEntry.timestamp} {logEntry.type}
+                                    {logEntry.timestamp} {logEntry.type} {logEntry.data.toString()}
                                 </a>
                             </h4>
                         </div>

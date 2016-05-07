@@ -8,6 +8,7 @@ const namespace = process.argv[2] || 'flood';
 const dl24client = require('../../dl24client');
 const config = require('./config');
 config.port = process.argv[3] || config.port;
+config.loggerPort = process.argv[4] || config.loggerPort;
 const logger = require('../../logger')(namespace, config.loggerPort);
 const gridder = require('../../gridder')(namespace, config.gridderPort);
 const stateUpdater = require('../../stateUpdater')(namespace, config.stateUpdaterPort);
@@ -79,12 +80,12 @@ const gameLoop = (service) => {
                     const workersThatShouldLeaveStuff = theGame.getWorkers().filter(worker => shouldLeaveBags(worker));
 
                     const workerMoves = [];
-                    // workersThatShouldTakeStuff.forEach(worker => {
-                    //     const vector = theGame.vectorToStack(worker);
-                    //     vector.workerId = worker.id;
+                    workersThatShouldTakeStuff.forEach(worker => {
+                        const vector = theGame.vectorToStack(worker);
+                        vector.workerId = worker.id;
 
-                    //     workerMoves.push(vector);
-                    // });
+                        workerMoves.push(vector);
+                    });
 
                     workersThatShouldLeaveStuff.forEach(worker => {
                         const vector = theGame.vectorToMagazine(worker);
@@ -102,32 +103,30 @@ const gameLoop = (service) => {
                             workerMoves.push(vector);
                         });
 
-                    //leave
-                    service.command({
-                        serverCommand: 'LEAVE',
-                        args: workersThatShouldLeaveStuff.map(worker => `${worker.id} 1`)
-                    }, () => {
-                        // move
-                        service.command({
-                            serverCommand: 'MOVE',
-                            args: workerMoves.map(workerMove => `${workerMove.workerId} ${workerMove.x} ${workerMove.y}`)
-                        }, () => {
-                            const worker = workersThatShouldTakeStuff[0];
-                            const tile = theGame.getTile(worker);
-
-                            //take
-                            if (!worker.bags && tile.tileType === tileTypes.magazine) {
-                                service.singleLineResponseQuery(`TAKE ${worker.id} 1`, () => {
-                                    const vector = theGame.vectorToStack(worker);
-                                    service.command({serverCommand: 'MOVE', args: [`${worker.id} ${vector.x} ${vector.y}`]}, () => {
-                                        service.nextTurn();
-                                    });
+                    //take
+                    service.multipleQueries(
+                        workersThatShouldTakeStuff.map(workerThatShouldTakeStuff => {
+                            return {
+                                queryText: `TAKE ${workerThatShouldTakeStuff.id} 1`,
+                                expectedNumberOfLines: 1
+                            };
+                        }),
+                        responses => {
+                            //leave
+                            service.command({
+                                serverCommand: 'LEAVE',
+                                args: workersThatShouldLeaveStuff.map(worker => `${worker.id} 1`)
+                            }, () => {
+                                // move
+                                service.command({
+                                    serverCommand: 'MOVE',
+                                    args: workerMoves.map(workerMove => `${workerMove.workerId} ${workerMove.x} ${workerMove.y}`)
+                                }, () => {
+                                    service.nextTurn();
                                 });
-                            } else {
-                                service.nextTurn();
-                            }
-                        });
-                    });
+                            });
+                        }
+                    );
 
                     // const scout = theGame.getScout();
 
