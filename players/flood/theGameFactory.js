@@ -205,7 +205,7 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                 const [xCoordinate, yCoordinate, width, height, value, bags] = objectResponse.split(' ');
 
                 return {
-                    magazine: bags !== 'na',
+                    magazine: bags.toLowerCase() !== 'na',
                     coordinates: {
                         x: parseInt(xCoordinate, 10),
                         y: parseInt(yCoordinate, 10)
@@ -274,9 +274,9 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                     id: parseInt(id, 10),
                     x: parseInt(x, 10),
                     y: parseInt(y, 10),
-                    moving: moving === 'y',
+                    moving: moving.toLowerCase() === 'y',
                     capacity: parseInt(capacity, 10),
-                    status: status === 'd' || status === 'p' ? workerStatuses[status] : workerStatuses.withBags,
+                    status: status.toLowerCase() === 'd' || status.toLowerCase() === 'p' ? workerStatuses[status] : workerStatuses.withBags,
                     bags: parseInt(status, 10),
                     color: COLOURS[tileTypes.worker]
                 };
@@ -363,7 +363,7 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                     // console.log(`${sandbagString} => ${result}`);
                 };
 
-                if (sandbagString === 'z') {
+                if (sandbagString.toLowerCase() === 'z') {
                     const more = (state.map[tile.y][tile.x].sandBags || 30) + 1;
 
                     showResult(more);

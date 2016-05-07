@@ -7,7 +7,7 @@ String.prototype.withTerminator = function withTerminator () {
 };
 
 String.prototype.sanitized = function sanitized () {
-    return this.toString().trim().toLowerCase().replace('\r', '');
+    return this.toString().trim().replace('\r', '');
 };
 
 const getMillisecondsTillNextTurnFromServerResponse = (waitingResponse) => {
@@ -93,14 +93,15 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
 
             connection.on('data', function commandHandler (data) {
                 const saneData = data.sanitized();
+                const loweredSaneData = saneData.toLowerCase();
 
-                if (data === '\n' || saneData === 'ok') {
+                if (data === '\n' || loweredSaneData === 'ok') {
                     return;
                 }
 
                 emitDebug({query, expectedNumberOfLines, data}, 'im going insane, ha ha');
 
-                if (saneData.startsWith('failed')) {
+                if (loweredSaneData.startsWith('failed')) {
                     connection.removeListener('data', commandHandler);
 
                     setTimeout(gameLoop.bind(null, service), 1000);
@@ -110,7 +111,7 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                 }
 
                 let responseLines = [];
-                if (saneData.startsWith('ok')) {
+                if (loweredSaneData.startsWith('ok')) {
                     responseLines = saneData.split('\n').map((line) => line.sanitized()).slice(1);
                 } else {
                     responseLines = saneData.split('\n').map((line) => line.sanitized());
@@ -136,15 +137,16 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                 }
 
                 const saneData = data.sanitized();
+                const loweredSaneData = saneData.toLowerCase();
 
-                if (saneData.startsWith('waiting')) {
+                if (loweredSaneData.startsWith('waiting')) {
                     const millisecondsTillNextTurn = getMillisecondsTillNextTurnFromServerResponse(saneData);
                     eventEmitter.emit('waiting', millisecondsTillNextTurn);
 
                     return;
                 }
 
-                if (saneData === 'ok') {
+                if (loweredSaneData === 'ok') {
                     connection.removeListener('data', waitHandler);
                     startGameLoop(service);
 
@@ -169,8 +171,9 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                 }
 
                 const saneData = data.sanitized();
+                const loweredSaneData = saneData.toLowerCase();
 
-                if (saneData.startsWith('failed')) {
+                if (loweredSaneData.startsWith('failed')) {
                     connection.removeListener('data', commandHandler);
 
                     // setTimeout(startGameLoop.bind(null, service), 1000);
@@ -179,7 +182,7 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                     // return;
                 }
 
-                if (saneData.startsWith('waiting')) {
+                if (loweredSaneData.startsWith('waiting')) {
                     waitTillNextTurn(saneData, connection, commandHandler, startGameLoop.bind(null, service));
 
                     return;
@@ -248,19 +251,19 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
     };
 
     connection.on('data', function loginHandler (data) {
-        if (data.sanitized() === 'login') {
+        if (data.sanitized().toLowerCase() === 'login') {
             connection.write(username.withTerminator(), () => eventEmitter.emit('sentToServer', username));
 
             return;
         }
 
-        if (data.sanitized() === 'pass') {
+        if (data.sanitized().toLowerCase() === 'pass') {
             connection.write(password.withTerminator(), () => eventEmitter.emit('sentToServer', password));
 
             return;
         }
 
-        if (data.sanitized() === 'ok') {
+        if (data.sanitized().toLowerCase() === 'ok') {
             connection.removeListener('data', loginHandler);
             startGameLoop(service);
         }
