@@ -24,7 +24,7 @@ app.get('/', (req, res) => {
 });
 
 const server = app.listen(PORT, () => {
-    console.log('listening on port ', PORT);
+    console.log('grid server listening on port ', PORT);
 });
 
 const io = socketIo.listen(server);

@@ -1,0 +1,59 @@
+@dat-colour: #7BC246;
+
+@brand-primary: @dat-colour;
+@btn-primary-color: #fff;
+@btn-primary-border: @dat-colour;
+@btn-default-color: @dat-colour;
+@state-success-border: @dat-colour;
+
+@btn-success-color: #fff;
+@btn-success-border: #fff;
+@btn-success-bg: @dat-colour;
+
+.truncate {
+    text-overflow: ellipsis;
+	white-space: nowrap;
+	overflow: hidden;
+}
+
+/* datMultiselect */
+.Select.is-disabled>.Select-control {
+    background-color: #eeeeee;
+}
+
+.Select--multi .Select-value {
+    color: #fff;
+    background-color: #7BC246;
+    border-color: #6fb33b;
+}
+
+.ClientForm,
+.CatForm {
+    .nav-tabs {
+        border: 0
+    }
+    .nav-tabs > li.active > a,
+    .nav-tabs > li.active > a:hover,
+    .nav-tabs > li.active > a:focus {
+        background: #F1F1F7;
+        border: 0;
+    }
+
+    .nav-tabs > li > a {
+        border: 0;
+
+        &:hover {
+            background: #F3F3F9;
+        }
+    }
+}
+
+a.btn-success {
+    color: white;
+    text-decoration: none;
+}
+
+// strengthening style specificity
+.modal.modal {
+    display: block;
+}

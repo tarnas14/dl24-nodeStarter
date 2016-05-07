@@ -4,6 +4,7 @@ const namespace = process.argv[2] || 'example';
 const dl24client = require('../../dl24client');
 const logger = require('../../logger')(namespace);
 const gridder = require('../../gridder')(namespace);
+const stateUpdater = require('../../stateUpdater')(namespace);
 const config = require('./config');
 
 const range = (numberOfElements) => {
@@ -31,6 +32,8 @@ gridder.newGrid({map, styles: {background: 'green', side: 11}}, () => {
         });
     }, 100);
 });
+
+stateUpdater.newState({some: 'state'}, () => console.log('updated state!'));
 
 const gameLoop = (service) => {
     service.nextTurn();
