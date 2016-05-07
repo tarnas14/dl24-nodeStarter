@@ -31,6 +31,28 @@ let turn = 1;
 
 const dl24client = ({port, host, username, password}, gameLoop) => {
     const eventEmitter = new EventEmitter();
+    const waitTillNextTurn = (waitResponse, connection, commandHandler, callback) => {
+        connection.removeListener('data', commandHandler);
+        const millisecondsTillNextTurn = getMillisecondsTillNextTurnFromServerResponse(waitResponse);
+
+        eventEmitter.emit('waiting', millisecondsTillNextTurn);
+
+        connection.on('data', function waitingHandler (waitingData) {
+            if (waitingData === '\n') {
+                return;
+            }
+
+            connection.removeListener('data', waitingHandler);
+            if (waitingData.sanitized() !== 'ok') {
+                eventEmitter.emit('error', `was waiting for next turn, got ${waitingData}`);
+            }
+
+            callback();
+        });
+
+        return;
+    };
+
     const connection = net.createConnection(port, host);
     connection.setEncoding('utf8');
 
@@ -48,58 +70,11 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
 
     const service = {
         singleLineResponseQuery (query, callback) {
-            let responseLine = '';
-            let waitingTillNextTurn = false;
+            this.multilineResponseQuery(query, 1, arrayResponse => {
+                const [response] = arrayResponse;
 
-            connection.on('data', function commandHandler (data) {
-                if (data === '\n') {
-                    return;
-                }
-
-                const saneData = data.sanitized();
-
-                if (saneData.startsWith('failed')) {
-                    connection.removeListener('data', commandHandler);
-
-                    setTimeout(startGameLoop.bind(null, service), 1000);
-                    eventEmitter.emit('error', getErrorFromServerResponse(saneData));
-
-                    return;
-                }
-
-                if (waitingTillNextTurn && saneData === 'ok') {
-                    connection.removeListener('data', commandHandler);
-                    startGameLoop(service);
-
-                    return;
-                }
-
-                if (saneData.startsWith('ok')) {
-                    responseLine = saneData.split('\n').map((line) => line.sanitized()).slice(1)[0];
-                } else {
-                    responseLine = saneData;
-                }
-
-                if (responseLine && responseLine.startsWith('waiting')) {
-                    emitDebug({d: 'waitingTillNextTurn', responseLine});
-                    waitingTillNextTurn = true;
-                    const millisecondsTillNextTurn = getMillisecondsTillNextTurnFromServerResponse(responseLine);
-
-                    eventEmitter.emit('waiting', millisecondsTillNextTurn);
-
-                    return;
-                }
-
-                if (responseLine) {
-                    connection.removeListener('data', commandHandler);
-                    eventEmitter.emit('receivedFromServer', responseLine, query);
-                    callback(responseLine);
-
-                    return;
-                }
+                callback(response);
             });
-
-            connection.write(query.withTerminator(), () => eventEmitter.emit('sentToServer', query));
         },
         multilineResponseQuery (query, expectedNumberOfLines, callback) {
             let lines = [];
@@ -111,6 +86,12 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
 
                 const saneData = data.sanitized();
 
+                if (saneData.startsWith('waiting')) {
+                    waitTillNextTurn(saneData, connection, commandHandler, startGameLoop.bind(null, service));
+
+                    return;
+                }
+
                 if (saneData.startsWith('failed')) {
                     connection.removeListener('data', commandHandler);
 
@@ -120,35 +101,34 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                     return;
                 }
 
+                const handleMultipleLines = (responseLines) => {
+                    const waitResponse = responseLines.find(line => line.startsWith('waiting'));
+
+                    if (waitResponse) {
+                        waitTillNextTurn(waitResponse, connection, commandHandler, startGameLoop.bind(null, service));
+                    }
+
+                    const numberOfExpectedLines = parseInt(expectedNumberOfLines || responseLines[0], 10);
+                    if (numberOfExpectedLines === 0) {
+                        connection.removeListener('data', commandHandler);
+                        eventEmitter.emit('receivedFromServer', lines, query);
+                        callback(lines);
+                    }
+                    if (!expectedNumberOfLines) {
+                        lines = responseLines.slice(1);
+                    } else {
+                        lines = responseLines;
+                    }
+                };
+
                 if (saneData.startsWith('ok')) {
-                    const responseLines = saneData.split('\n').map((line) => line.sanitized()).slice(1);
-                    const numberOfExpectedLines = parseInt(
-                        expectedNumberOfLines || responseLines[0], 10);
-                    if (numberOfExpectedLines === 0) {
-                        connection.removeListener('data', commandHandler);
-                        eventEmitter.emit('receivedFromServer', lines, query);
-                        callback(lines);
-                    }
-                    if (!expectedNumberOfLines) {
-                        lines = responseLines.slice(1);
-                    } else {
-                        lines = responseLines;
-                    }
+                    handleMultipleLines(
+                        saneData.split('\n').map((line) => line.sanitized()).slice(1)
+                    );
                 } else {
-                    const responseLines = saneData.split('\n').map((line) => line.sanitized());
-                    const numberOfExpectedLines = parseInt(
-                        expectedNumberOfLines || responseLines[0],
-                        10);
-                    if (numberOfExpectedLines === 0) {
-                        connection.removeListener('data', commandHandler);
-                        eventEmitter.emit('receivedFromServer', lines, query);
-                        callback(lines);
-                    }
-                    if (!expectedNumberOfLines) {
-                        lines = responseLines.slice(1);
-                    } else {
-                        lines = responseLines;
-                    }
+                    handleMultipleLines(
+                        saneData.split('\n').map((line) => line.sanitized())
+                    );
                 }
 
                 if (lines.length) {
@@ -173,7 +153,6 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
             }
 
             let expectedOks = args.length;
-            let waitingTillNextTurn = false;
 
             connection.on('data', function commandHandler (data) {
                 if (data === '\n') {
@@ -191,20 +170,8 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                     return;
                 }
 
-                if (waitingTillNextTurn && saneData === 'ok') {
-                    connection.removeListener('data', commandHandler);
-                    startGameLoop(service);
-
-                    return;
-                }
-
                 if (saneData.startsWith('waiting')) {
-                    emitDebug({d: 'waitingTillNextTurn', saneData});
-                    waitingTillNextTurn = true;
-                    const millisecondsTillNextTurn = getMillisecondsTillNextTurnFromServerResponse(saneData);
-
-                    eventEmitter.emit('waiting', millisecondsTillNextTurn);
-
+                    waitTillNextTurn(saneData, connection, commandHandler, startGameLoop.bind(null, service));
                     return;
                 }
 
