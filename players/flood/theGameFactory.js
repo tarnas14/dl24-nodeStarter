@@ -11,6 +11,13 @@ const range = (numberOfElements) => {
     return Array.apply(null, Array(numberOfElements)).map((_, i) => i);
 };
 
+const average = elements => {
+    const sum = 0;
+    elements.forEach(el => sum += el);
+
+    return Math.floor(sum / elements.length + 1);
+};
+
 const getRandomInt = (min, max) => (Math.floor(Math.random() * (max - min)) + min);
 
 const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
@@ -115,23 +122,32 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             {x: -1, y: -1}
         ];
 
-        let distance = 9999;
-        let vector = null;
-        vectors.forEach(v => {
+        const withDistances = vectors.map(v => {
             const nextPointFrom = {x: pointFrom.x + v.x, y: pointFrom.y + v.y};
-            if (isObject(nextPointFrom.x, nextPointFrom.y)) {
-                return;
-            }
-            const possibleVector = getVector(nextPointFrom, pointTo);
-            const possibleDistance = possibleVector.x + possibleVector.y;
 
-            if (possibleDistance < distance) {
-                distance = possibleDistance;
-                vector = possibleVector;
+            if (isObject(nextPointFrom.x, nextPointFrom.y)) {
+                return {distance: 9999999};
+            }
+
+            const possibleVector = getVector(nextPointFrom, pointTo);
+            const possibleDistance = Math.abs(possibleVector.x) + Math.abs(possibleVector.y);
+
+            return {
+                normalized: v,
+                distance: possibleDistance
+            };
+        });
+
+        let distance = 9999;
+        let normalized = null;
+        withDistances.forEach(v => {
+            if (v.distance < distance) {
+                distance = v.distance;
+                normalized = v.normalized;
             }
         });
 
-        return normalize(vector);
+        return normalized;
     };
 
     const getObjectCoordinates = object => {
@@ -140,11 +156,18 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
         const maxY = object.size.height;
         const maxX = object.size.width;
 
+        const coordinates = [];
+
         for (let y = 0; y < maxY; y++) {
             for (let x = 0; x < maxX; x++) {
-
+                coordinates.push({
+                    x: origin.x + x,
+                    y: origin.y + y
+                });
             }
         }
+
+        return coordinates;
     };
 
     return {
@@ -159,7 +182,6 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                 commandLimit: parseInt(commandLimit, 10)
             });
 
-            console.log(state.side);
             state.map = range(state.side).map(y => range(state.side).map(x => {
                 return getLandTile(x, y);
             }));
@@ -197,22 +219,19 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             state.objects = objects.filter(object => !object.magazine);
 
             objects.forEach(object => {
-                for (let y = 0; y < object.size.height; y++) {
-                    for (let x = 0; x < object.size.width; x++) {
-                        const type = object.magazine ? tileTypes.magazine : tileTypes.myObject;
+                const coordinates = getObjectCoordinates(object);
+                coordinates.forEach(objectCoordinate => {
+                    const type = object.magazine ? tileTypes.magazine : tileTypes.myObject;
 
-                        const tile = {
-                            x: object.coordinates.x + x,
-                            y: object.coordinates.y + y,
-                            value: object.value,
-                            bags: object.bags,
-                            fullObject: object,
-                            tileType: type
-                        };
-
-                        updateTile(tile);
-                    }
-                }
+                    updateTile({
+                        x: objectCoordinate.x,
+                        y: objectCoordinate.y,
+                        value: object.value,
+                        bags: object.bags,
+                        fullObject: object,
+                        tileType: type
+                    });
+                });
             });
 
             if (!state.stackBorderCoordinates) {
@@ -290,8 +309,13 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             return state.map[y][x];
         },
         vectorToStack (pointFrom) {
-            const nextBorderWithoutSandbags = state.stackBorderCoordinates.find(borderCoordinates =>
-                !state.map[borderCoordinates.y][borderCoordinates.x].sandBags);
+            const nextBorderWithoutSandbags = state.stackBorderCoordinates.find(stackBorder => {
+                const sandBags = state.map[stackBorder.y][stackBorder.x].sandBags;
+
+                return sandBags < average(state.forecast.map(f => f.hMax));
+            }) || state.stackBorderCoordinates[0];
+
+            console.log('next sandbags', nextBorderWithoutSandbags);
 
             if (!nextBorderWithoutSandbags) {
                 console.log('whole border filled?', state.stackBorderCoordinates);
@@ -306,7 +330,6 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
         },
         isStack ({x, y}) {
             return state.stackBorderCoordinates.find(borderCoordinates =>
-                !state.map[borderCoordinates.y][borderCoordinates.x].sandBags  &&
                 borderCoordinates.x === x &&
                 borderCoordinates.y === y);
         },
@@ -333,6 +356,33 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             return scout;
         },
         chartScoutData (scout, scoutResponse) {
+            const sandBagsToInt = (sandbagString, tile) => {
+                const showResult = result => {
+                    // console.log(`${sandbagString} => ${result}`);
+                };
+
+                if (sandbagString === 'z') {
+                    const more = (state.map[tile.y][tile.x].sandBags || 30) + 1;
+
+                    showResult(more);
+
+                    return more;
+                }
+
+                const parsed = parseInt(sandbagString, 10);
+                if (!isNaN(parsed)) {
+                    showResult(parsed);
+
+                    return parsed;
+                }
+
+                const sigh = {'a': 10, 'b': 11, 'c': 12, 'd': 13, 'e': 14, 'f': 15, 'g': 16, 'h': 17, 'i': 18, 'j': 19, 'k': 20, 'l': 21, 'm': 22, 'n': 23, 'o': 24, 'p': 25, 'q': 26, 'r': 27, 's': 28, 't': 29, 'u': 30};
+
+                showResult(sigh[sandbagString]);
+
+                return sigh[sandbagString];
+            };
+
             debugState.newState(scoutResponse);
             for (let y = 1; y < 8; ++y) {
                 const yLine = scoutResponse[y - 1];
@@ -360,7 +410,7 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                         break;
                     default:
                         tile.tileType = tileTypes.sandBags;
-                        tile.sandBags = tileType;
+                        tile.sandBags = sandBagsToInt(tileType.toLowerCase(), tile);
                         updateTile(tile);
                         break;
                     }
@@ -378,7 +428,17 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             updateStateLog();
         },
         setForecast (response) {
-            state.forecast = response;
+            state.forecast = response.map(singleForecast => {
+                const [age, pMin, pMax, hMin, hMax] = singleForecast.split(' ');
+
+                return {
+                    age: parseInt(age, 10),
+                    pMin: parseInt(pMin, 10),
+                    pMax: parseInt(pMax, 10),
+                    hMin: parseInt(hMin, 10),
+                    hMax: parseInt(hMax, 10)
+                };
+            });
 
             updateStateLog();
         },
@@ -386,7 +446,8 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             return state.floodStatus.height;
         },
         vectorToClosestObject (pointFrom) {
-            return normalize(getVector(pointFrom, closestObject(pointFrom, state.objects).coordinates));
+            const startingPoint = pointFrom || state.magazines[0].coordinates;
+            return normalize(getVector(startingPoint, closestObject(startingPoint, state.objects).coordinates));
         }
     };
 };

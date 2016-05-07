@@ -83,15 +83,13 @@ const gameLoop = (service) => {
             if (!tile) {
                 return false;
             }
+
             return worker.bags && theGame.isStack(tile);
         };
 
-        const scout = theGame.getScout();
-        const workersWithoutScout = scout ? theGame.getWorkers().filter(worker => worker.id !== scout.id) : theGame.getWorkers();
+        const workersThatShouldTakeStuff = theGame.getWorkers().filter(worker => shouldTakeBags(worker));
 
-        const workersThatShouldTakeStuff = workersWithoutScout.filter(worker => shouldTakeBags(worker));
-
-        const workersThatShouldLeaveStuff = workersWithoutScout.filter(worker => shouldLeaveBags(worker));
+        const workersThatShouldLeaveStuff = theGame.getWorkers().filter(worker => shouldLeaveBags(worker));
 
         const workerMoves = [];
         workersThatShouldTakeStuff.forEach(worker => {
@@ -108,7 +106,7 @@ const gameLoop = (service) => {
             workerMoves.push(vector);
         });
 
-        workersWithoutScout
+        theGame.getWorkers()
             .filter(worker => !shouldLeaveBags(worker) && !shouldTakeBags(worker))
             .forEach(worker => {
                 const vector = worker.bags
@@ -119,44 +117,51 @@ const gameLoop = (service) => {
                 workerMoves.push(vector);
             });
 
-        // look around with scout
-        service.multilineResponseQuery(scout ? `LOOK_AROUND ${scout.id}` : '', 14, scoutResponse => {
-            if (scoutResponse) {
-                theGame.chartScoutData(scout, scoutResponse);
-            }
+        logger.debug({
+            workersThatShouldLeaveStuff,
+            workersThatShouldTakeStuff,
+            workerMoves
+        });
 
-            const vector = theGame.vectorToClosestObject(scout);
-            const scoutDestinationReached = vector.x === 0 && vector.y === 0;
-            // move toward the closest object
-            service.command({
-                serverCommand: 'MOVE',
-                args: scoutDestinationReached ? [] : [`${scout.id} ${vector.x} ${vector.y}`]
-            }, () => {
-                // take
-                service.multipleQueries(
-                    workersThatShouldTakeStuff.map(workerThatShouldTakeStuff => {
-                        return {
-                            queryText: `TAKE ${workerThatShouldTakeStuff.id} 1`,
-                            expectedNumberOfLines: 1
-                        };
-                    }),
-                    () => {
-                        // leave
+        // look around
+        console.log('look around');
+        service.multipleQueries(theGame.getWorkers().map(worker => {
+            return {
+                queryText: `LOOK_AROUND ${worker.id}`,
+                expectedNumberOfLines: 14,
+                scout: worker
+            };
+        }), scoutResponses => {
+            if (scoutResponses) {
+                scoutResponses.forEach(scoutResponse => theGame.chartScoutData(scoutResponse.scout, scoutResponse.response));
+            }
+            // take
+            console.log('take');
+            service.multipleQueries(
+                workersThatShouldTakeStuff.map(workerThatShouldTakeStuff => {
+                    return {
+                        queryText: `TAKE ${workerThatShouldTakeStuff.id} 1`,
+                        expectedNumberOfLines: 1
+                    };
+                }),
+                () => {
+                    // leave
+                    console.log('leave');
+                    service.command({
+                        serverCommand: 'LEAVE',
+                        args: workersThatShouldLeaveStuff.map(worker => `${worker.id} 1`)
+                    }, () => {
+                        // move
+                        console.log('move');
                         service.command({
-                            serverCommand: 'LEAVE',
-                            args: workersThatShouldLeaveStuff.map(worker => `${worker.id} 1`)
+                            serverCommand: 'MOVE',
+                            args: workerMoves.map(workerMove => `${workerMove.workerId} ${workerMove.x} ${workerMove.y}`)
                         }, () => {
-                            // move
-                            service.command({
-                                serverCommand: 'MOVE',
-                                args: workerMoves.map(workerMove => `${workerMove.workerId} ${workerMove.x} ${workerMove.y}`)
-                            }, () => {
-                                service.nextTurn();
-                            });
+                            service.nextTurn();
                         });
-                    }
-                );
-            });
+                    });
+                }
+            );
         });
 
         // if (!scout) {
@@ -197,7 +202,10 @@ const gameLoop = (service) => {
 const emitter = dl24client(config, gameLoop);
 emitter.on('error', error => console.log('ERROR', error));
 emitter.on('error', error => logger.error(error));
-emitter.on('waiting', millisecondsTillNextTurn => logger.info('waiting', {millisecondsTillNextTurn}));
+emitter.on('waiting', millisecondsTillNextTurn => {
+    logger.info('waiting', {millisecondsTillNextTurn});
+    console.log('waiting till next turn', millisecondsTillNextTurn);
+});
 emitter.on('receivedFromServer', (data, command) => logger.info('receivedFromServer', {received: data, after: command}));
 emitter.on('sentToServer', command => logger.info('sentToServer', command));
 emitter.on('rawData', data => logger.info('raw data from server', {data: data}));

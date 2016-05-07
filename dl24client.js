@@ -199,6 +199,10 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
             });
         },
         multipleQueries (queries, callback) {
+            if (!queries.length) {
+                callback();
+            }
+
             const queryStatus = {
                 pending: '',
                 inProgress: '1',
