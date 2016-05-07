@@ -38,6 +38,13 @@ const gameLoop = (service) => {
 
                     //move
 
+                    if (!theGame.getWorkers().length) {
+                        console.log('no workers, next turn');
+                        service.nextTurn();
+
+                        return;
+                    }
+
                     if (theGame.isFlooding()) {
                         const args = [];
                         theGame.getWorkers().forEach(fleeingWorker => {
@@ -98,24 +105,26 @@ const gameLoop = (service) => {
                     workersWithoutScout
                         .filter(worker => !shouldLeaveBags(worker) && !shouldTakeBags(worker))
                         .forEach(worker => {
-                            const vector = worker.bags ? theGame.vectorToStack(worker) : theGame.vectorToMagazine(worker);
+                            const vector = worker.bags
+                                ? theGame.vectorToStack(worker)
+                                : theGame.vectorToMagazine(worker);
                             vector.workerId = worker.id;
 
                             workerMoves.push(vector);
                         });
 
-                    //look around with scout
+                    // look around with scout
                     service.multilineResponseQuery(`LOOK_AROUND ${scout.id}`, 14, scoutResponse => {
                         theGame.chartScoutData(scout, scoutResponse);
 
                         const vector = theGame.vectorToClosestObject(scout);
-                        const destinationReached = vector.x === 0 && vector.y === 0;
-                        //move toward the closest object
+                        const scoutDestinationReached = vector.x === 0 && vector.y === 0;
+                        // move toward the closest object
                         service.command({
                             serverCommand: 'MOVE',
-                            args: destinationReached ? [] : [`${scout.id} ${vector.x} ${vector.y}`]
+                            args: scoutDestinationReached ? [] : [`${scout.id} ${vector.x} ${vector.y}`]
                         }, () => {
-                            //take
+                            // take
                             service.multipleQueries(
                                 workersThatShouldTakeStuff.map(workerThatShouldTakeStuff => {
                                     return {
@@ -124,7 +133,7 @@ const gameLoop = (service) => {
                                     };
                                 }),
                                 () => {
-                                    //leave
+                                    // leave
                                     service.command({
                                         serverCommand: 'LEAVE',
                                         args: workersThatShouldLeaveStuff.map(worker => `${worker.id} 1`)

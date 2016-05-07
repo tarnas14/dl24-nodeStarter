@@ -18,8 +18,8 @@ const ObservingCell = React.createClass({
         };
     },
 
-    componentDidMount () {
-        this.props.gridChangeStream.subscribe(event => {
+    componentWillMount () {
+        const subscription = this.props.gridChangeStream.subscribe(event => {
             switch (event.type) {
             case (eventTypes.update):
                 this.update(event.cell);
@@ -29,6 +29,12 @@ const ObservingCell = React.createClass({
                 break;
             }
         });
+
+        this.setState({subscription});
+    },
+
+    componentWillUnmount () {
+        this.state.subscription.unsubscribe();
     },
 
     update (cell) {

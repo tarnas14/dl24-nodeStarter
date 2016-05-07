@@ -1,6 +1,7 @@
 'use strict';
 
 const tileTypes = require('./tileTypes');
+const {getVector, normalize} = require('./vectors');
 
 const COLOURS = require('./colours');
 
@@ -9,6 +10,8 @@ const workerStatuses = require('./workerStatuses');
 const range = (numberOfElements) => {
     return Array.apply(null, Array(numberOfElements)).map((_, i) => i);
 };
+
+const getRandomInt = (min, max) => (Math.floor(Math.random() * (max - min)) + min);
 
 const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
     const getInitialState = () => {
@@ -19,12 +22,13 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             turnTime: 0,
             commandLimit: 0,
             workersCount: 0,
-            stackCoordinates: null,
+            stackBorderCoordinates: null,
             scoutId: '',
             map: [],
             magazines: [],
             objects: [],
-            workers: []
+            workers: [],
+            floodStatus: {}
         };
     };
 
@@ -70,20 +74,6 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
         state.workers = [...state.workers.slice(0, workerIndex), ...state.workers.slice(workerIndex + 1)];
     };
 
-    const getVector = (pointFrom, pointTo) => {
-        const moveX = pointTo.x - pointFrom.x;
-        const moveY = pointTo.y - pointFrom.y;
-
-        return {x: moveX, y: moveY};
-    };
-
-    const normalize = vector => {
-        return {
-            x: vector.x < 0 ? -1 : (vector.x ? 1 : 0),
-            y: vector.y < 0 ? -1 : (vector.y ? 1 : 0)
-        };
-    };
-
     const closestObject = (pointFrom, objects) => {
         let minDistance = 99999;
         let closest = null;
@@ -99,6 +89,13 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
         });
 
         return closest;
+    };
+
+    const isObject = (x, y) => {
+        const type = state.map[y][x].tileType;
+        const objectTypes = [tileTypes.myObject, tileTypes.object, tileTypes.magazine];
+
+        return objectTypes.indexOf(type);
     };
 
     return {
@@ -168,8 +165,26 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                 }
             });
 
-            if (!state.stackCoordinates) {
-                state.stackCoordinates = {x: state.magazines[0].coordinates.x, y: state.magazines[0].coordinates.y - 1};
+            if (!state.stackBorderCoordinates) {
+                const stack = closestObject(state.magazines[0].coordinates, state.objects);
+                const stackBorderCoordinates = [];
+                for (let y = 0; y < stack.size.height + 2; y++) {
+                    for (let x = 0; x < stack.size.width + 2; x++) {
+                        const edge = ((y === 0) && (x === 0)) ||
+                            ((y === 0) && (x === stack.size.width + 2)) ||
+                            ((y === stack.size.height + 2) && (x === 0)) ||
+                            ((y === stack.size.height + 2) && (x === stack.size.width + 2));
+
+                        if (!edge) {
+                            stackBorderCoordinates.push({
+                                x: stack.coordinates.x - 1 + x,
+                                y: stack.coordinates.y - 1 + y
+                            });
+                        }
+                    }
+                }
+
+                state.stackBorderCoordinates = stackBorderCoordinates;
             }
 
             updateStateLog();
@@ -221,20 +236,43 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             return state.map[y][x];
         },
         vectorToStack (pointFrom) {
-            const vector = normalize(getVector(pointFrom, state.stackCoordinates));
+            const nextBorderWithoutSandbags = state.stackBorderCoordinates.find(borderCoordinates =>
+                !state.map[borderCoordinates.y][borderCoordinates.x].sandBags);
 
-            if (isObject(pointFrom.x + vector.x, pointFrom.y + vector.y)) {
-                return {
-                    x: vector.x < 1 ? vector.x + 1 : (vector.x > -1) ? vector.x - 1 : 0,
-                    y: vector.y
-                }
+            if (!nextBorderWithoutSandbags) {
+                console.log('whole border filled?', state.stackBorderCoordinates);
+
+                return {x: 0, y: 0};
             }
+
+            let vector = normalize(getVector(pointFrom, nextBorderWithoutSandbags));
+
+            const vectors = [
+                {x: 0, y: 0},
+                {x: 0, y: 1},
+                {x: 0, y: -1},
+                {x: 1, y: 0},
+                {x: 1, y: 1},
+                {x: 1, y: -1},
+                {x: -1, y: 0},
+                {x: -1, y: 1},
+                {x: -1, y: -1}
+            ];
+
+            while (!isObject(pointFrom.x + vector.x, pointFrom.y + vector.y)) {
+                vector = vectors[getRandomInt(0, vectors.length)];
+            }
+
+            return vector;
         },
         vectorToMagazine (pointFrom) {
             return normalize(getVector(pointFrom, state.magazines[0].coordinates));
         },
-        isStack ({x, y}) {
-            return x === state.stackCoordinates.x && y === state.stackCoordinates.y;
+        isStack ({xSomething, ySomething}) {
+            return state.stackBorderCoordinates.find(borderCoordinates =>
+                !state.map[borderCoordinates.y][borderCoordinates.x].sandBags  &&
+                borderCoordinates.x === xSomething &&
+                borderCoordinates.y === ySomething);
         },
         getScout () {
             const newScout = () => {
