@@ -12,8 +12,10 @@ const range = (numberOfElements) => {
 };
 
 const average = elements => {
-    const sum = 0;
-    elements.forEach(el => sum += el);
+    let sum = 0;
+    elements.forEach(el => {
+        sum += el;
+    });
 
     return Math.floor(sum / elements.length + 1);
 };
@@ -182,6 +184,8 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                 commandLimit: parseInt(commandLimit, 10)
             });
 
+            console.log('initing', state.side);
+
             state.map = range(state.side).map(y => range(state.side).map(x => {
                 return getLandTile(x, y);
             }));
@@ -314,8 +318,6 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
 
                 return sandBags < average(state.forecast.map(f => f.hMax));
             }) || state.stackBorderCoordinates[0];
-
-            console.log('next sandbags', nextBorderWithoutSandbags);
 
             if (!nextBorderWithoutSandbags) {
                 console.log('whole border filled?', state.stackBorderCoordinates);

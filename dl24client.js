@@ -18,13 +18,21 @@ const getMillisecondsTillNextTurnFromServerResponse = (waitingResponse) => {
 };
 
 const getErrorFromServerResponse = (errorResponse) => {
+    console.log(errorResponse);
     const errorRegex = /^failed (\d+) ([\w|\s]+)$/;
-    const [, code, message] = errorRegex.exec(errorResponse);
+    try {
+        const [, code, message] = errorRegex.exec(errorResponse);
 
-    return {
-        code,
-        message
-    };
+        return {
+            code,
+            message
+        };
+    } catch (e) {
+        return {
+            code: 'WTF',
+            message: `error getting response from '${errorResponse}'`
+        };
+    }
 };
 
 let turn = 1;

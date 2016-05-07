@@ -157,6 +157,7 @@ const gameLoop = (service) => {
                             serverCommand: 'MOVE',
                             args: workerMoves.map(workerMove => `${workerMove.workerId} ${workerMove.x} ${workerMove.y}`)
                         }, () => {
+                            console.log('next turn');
                             service.nextTurn();
                         });
                     });
