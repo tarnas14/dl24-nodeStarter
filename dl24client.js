@@ -207,18 +207,19 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
             };
 
             const queryStack = queries.map(query => {
-                return {
-                    queryText: query.queryText,
-                    expectedNumberOfLines: query.expectedNumberOfLines,
-                    status: queryStatus.pending
-                };
+                const queryOnStack = query;
+                queryOnStack.queryText = query.queryText;
+                queryOnStack.expectedNumberOfLines = query.expectedNumberOfLines;
+                queryOnStack.status = queryStatus.pending;
+
+                return queryOnStack;
             });
 
             const myInterval = setInterval(() => {
                 if (!queryStack.find(query => query.status !== queryStatus.done)) {
                     clearInterval(myInterval);
 
-                    callback(queryStack.map(query => query.response));
+                    callback(queryStack);
 
                     return;
                 }
