@@ -77,6 +77,12 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
             });
         },
         multilineResponseQuery (query, expectedNumberOfLines, callback) {
+            if (!query.length) {
+                callback();
+
+                return;
+            }
+
             connection.on('data', function commandHandler (data) {
                 const saneData = data.sanitized();
 

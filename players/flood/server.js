@@ -19,169 +19,178 @@ const getRandomInt = (min, max) => (Math.floor(Math.random() * (max - min)) + mi
 
 const gameLoop = (service) => {
     service.singleLineResponseQuery('DESCRIBE_WORLD', (worldDescriptionResponse) => {
-        service.multilineResponseQuery('LIST_OBJECTS', null, (objectsResponse) => {
-            service.multilineResponseQuery('LIST_WORKERS', null, (workersResponse) => {
-                service.singleLineResponseQuery('FLOOD_STATUS', (floodDescription) => {
-                    const [side, wheelBarrowPrice, goodPrognosis, turnTime, commandLimit] = worldDescriptionResponse.split(' ');
+    service.multilineResponseQuery('LIST_OBJECTS', null, (objectsResponse) => {
+    service.multilineResponseQuery('LIST_WORKERS', null, (workersResponse) => {
+    service.singleLineResponseQuery('FLOOD_STATUS', (floodDescription) => {
+    service.multilineResponseQuery('FORECAST', null, (forecastResponse) => {
 
-                    const worldDescriptor = `${side} ${wheelBarrowPrice} ${goodPrognosis} ${turnTime} ${commandLimit}`;
+        const [side, wheelBarrowPrice, goodPrognosis, turnTime, commandLimit] = worldDescriptionResponse.split(' ');
 
-                    if (worldDescriptor !== lastWorldDescriptor) {
-                        theGame.init(worldDescriptionResponse);
+        const worldDescriptor = `${side} ${wheelBarrowPrice} ${goodPrognosis} ${turnTime} ${commandLimit}`;
 
-                        lastWorldDescriptor = worldDescriptor;
-                    }
+        if (worldDescriptor !== lastWorldDescriptor) {
+            theGame.init(worldDescriptionResponse);
 
-                    theGame.mapObjects(objectsResponse);
-                    theGame.mapWorkers(workersResponse);
-                    theGame.floodStatus(floodDescription);
+            lastWorldDescriptor = worldDescriptor;
+        }
 
-                    //move
+        theGame.mapObjects(objectsResponse);
+        theGame.mapWorkers(workersResponse);
+        theGame.floodStatus(floodDescription);
+        theGame.setForecast(forecastResponse);
 
-                    if (!theGame.getWorkers().length) {
-                        console.log('no workers, next turn');
-                        service.nextTurn();
+        //move
 
-                        return;
-                    }
+        if (!theGame.getWorkers().length) {
+            console.log('no workers, no problem');
+            service.nextTurn();
 
-                    if (theGame.isFlooding()) {
-                        const args = [];
-                        theGame.getWorkers().forEach(fleeingWorker => {
-                            const tile = theGame.getTile(fleeingWorker);
+            return;
+        }
 
-                            if (tile.tileType !== tileTypes.magazine) {
-                                const vector = theGame.vectorToMagazine(fleeingWorker);
+        if (theGame.isFlooding()) {
+            const args = [];
+            theGame.getWorkers().forEach(fleeingWorker => {
+                const tile = theGame.getTile(fleeingWorker);
 
-                                args.push(`${fleeingWorker.id} ${vector.x} ${vector.y}`);
-                            }
-                        });
+                if (tile.tileType !== tileTypes.magazine) {
+                    const vector = theGame.vectorToMagazine(fleeingWorker);
 
-                        if (!args.length) {
-                            service.nextTurn();
+                    args.push(`${fleeingWorker.id} ${vector.x} ${vector.y}`);
+                }
+            });
 
-                            return;
-                        }
+            if (!args.length) {
+                service.nextTurn();
 
-                        service.command({serverCommand: 'MOVE', args}, () => {
-                            service.nextTurn();
-                        });
+                return;
+            }
 
-                        return;
-                    }
+            service.command({serverCommand: 'MOVE', args}, () => {
+                service.nextTurn();
+            });
 
-                    const shouldTakeBags = worker => {
-                        const tile = theGame.getTile(worker);
-                        return !worker.bags && tile.tileType === tileTypes.magazine;
-                    };
+            return;
+        }
 
-                    const shouldLeaveBags = worker => {
-                        const tile = theGame.getTile(worker);
-                        return worker.bags && theGame.isStack(tile);
-                    };
+        const shouldTakeBags = worker => {
+            const tile = theGame.getTile(worker);
+            return !worker.bags && tile.tileType === tileTypes.magazine;
+        };
 
-                    const scout = theGame.getScout();
-                    const workersWithoutScout = scout ? theGame.getWorkers().filter(worker => worker.id !== scout.id) : theGame.getWorkers();
+        const shouldLeaveBags = worker => {
+            const tile = theGame.getTile(worker);
+            if (!tile) {
+                return false;
+            }
+            return worker.bags && theGame.isStack(tile);
+        };
 
-                    const workersThatShouldTakeStuff = workersWithoutScout.filter(worker => shouldTakeBags(worker));
+        const scout = theGame.getScout();
+        const workersWithoutScout = scout ? theGame.getWorkers().filter(worker => worker.id !== scout.id) : theGame.getWorkers();
 
-                    const workersThatShouldLeaveStuff = workersWithoutScout.filter(worker => shouldLeaveBags(worker));
+        const workersThatShouldTakeStuff = workersWithoutScout.filter(worker => shouldTakeBags(worker));
 
-                    const workerMoves = [];
-                    workersThatShouldTakeStuff.forEach(worker => {
-                        const vector = theGame.vectorToStack(worker);
-                        vector.workerId = worker.id;
+        const workersThatShouldLeaveStuff = workersWithoutScout.filter(worker => shouldLeaveBags(worker));
 
-                        workerMoves.push(vector);
-                    });
+        const workerMoves = [];
+        workersThatShouldTakeStuff.forEach(worker => {
+            const vector = theGame.vectorToStack(worker);
+            vector.workerId = worker.id;
 
-                    workersThatShouldLeaveStuff.forEach(worker => {
-                        const vector = theGame.vectorToMagazine(worker);
-                        vector.workerId = worker.id;
+            workerMoves.push(vector);
+        });
 
-                        workerMoves.push(vector);
-                    });
+        workersThatShouldLeaveStuff.forEach(worker => {
+            const vector = theGame.vectorToMagazine(worker);
+            vector.workerId = worker.id;
 
-                    workersWithoutScout
-                        .filter(worker => !shouldLeaveBags(worker) && !shouldTakeBags(worker))
-                        .forEach(worker => {
-                            const vector = worker.bags
-                                ? theGame.vectorToStack(worker)
-                                : theGame.vectorToMagazine(worker);
-                            vector.workerId = worker.id;
+            workerMoves.push(vector);
+        });
 
-                            workerMoves.push(vector);
-                        });
+        workersWithoutScout
+            .filter(worker => !shouldLeaveBags(worker) && !shouldTakeBags(worker))
+            .forEach(worker => {
+                const vector = worker.bags
+                    ? theGame.vectorToStack(worker)
+                    : theGame.vectorToMagazine(worker);
+                vector.workerId = worker.id;
 
-                    // look around with scout
-                    service.multilineResponseQuery(`LOOK_AROUND ${scout.id}`, 14, scoutResponse => {
-                        theGame.chartScoutData(scout, scoutResponse);
+                workerMoves.push(vector);
+            });
 
-                        const vector = theGame.vectorToClosestObject(scout);
-                        const scoutDestinationReached = vector.x === 0 && vector.y === 0;
-                        // move toward the closest object
+        // look around with scout
+        service.multilineResponseQuery(scout ? `LOOK_AROUND ${scout.id}` : '', 14, scoutResponse => {
+            if (scoutResponse) {
+                theGame.chartScoutData(scout, scoutResponse);
+            }
+
+            const vector = theGame.vectorToClosestObject(scout);
+            const scoutDestinationReached = vector.x === 0 && vector.y === 0;
+            // move toward the closest object
+            service.command({
+                serverCommand: 'MOVE',
+                args: scoutDestinationReached ? [] : [`${scout.id} ${vector.x} ${vector.y}`]
+            }, () => {
+                // take
+                service.multipleQueries(
+                    workersThatShouldTakeStuff.map(workerThatShouldTakeStuff => {
+                        return {
+                            queryText: `TAKE ${workerThatShouldTakeStuff.id} 1`,
+                            expectedNumberOfLines: 1
+                        };
+                    }),
+                    () => {
+                        // leave
                         service.command({
-                            serverCommand: 'MOVE',
-                            args: scoutDestinationReached ? [] : [`${scout.id} ${vector.x} ${vector.y}`]
+                            serverCommand: 'LEAVE',
+                            args: workersThatShouldLeaveStuff.map(worker => `${worker.id} 1`)
                         }, () => {
-                            // take
-                            service.multipleQueries(
-                                workersThatShouldTakeStuff.map(workerThatShouldTakeStuff => {
-                                    return {
-                                        queryText: `TAKE ${workerThatShouldTakeStuff.id} 1`,
-                                        expectedNumberOfLines: 1
-                                    };
-                                }),
-                                () => {
-                                    // leave
-                                    service.command({
-                                        serverCommand: 'LEAVE',
-                                        args: workersThatShouldLeaveStuff.map(worker => `${worker.id} 1`)
-                                    }, () => {
-                                        // move
-                                        service.command({
-                                            serverCommand: 'MOVE',
-                                            args: workerMoves.map(workerMove => `${workerMove.workerId} ${workerMove.x} ${workerMove.y}`)
-                                        }, () => {
-                                            service.nextTurn();
-                                        });
-                                    });
-                                }
-                            );
+                            // move
+                            service.command({
+                                serverCommand: 'MOVE',
+                                args: workerMoves.map(workerMove => `${workerMove.workerId} ${workerMove.x} ${workerMove.y}`)
+                            }, () => {
+                                service.nextTurn();
+                            });
                         });
-                    });
-
-                    // if (!scout) {
-                    //     service.nextTurn();
-
-                    //     return;
-                    // }
-
-                    // if (!scout.shouldMove) {
-                    //     service.multilineResponseQuery(`LOOK_AROUND ${scout.id}`, 14, (response) => {
-                    //         scout.shouldMove = true;
-
-                    //         theGame.chartScoutData(scout, response);
-
-                    //         logger.debug(response);
-
-                    //         service.nextTurn();
-                    //     });
-                    //     return;
-                    // }
-
-                    // if (scout.shouldMove) {
-                    //     service.command({serverCommand: 'MOVE', args: [`${scout.id}`]}, () => {
-                    //         scout.shouldMove = false;
-
-                    //         service.nextTurn();
-                    //     });
-
-                    //     return;
-                    // }
-                });
+                    }
+                );
             });
         });
+
+        // if (!scout) {
+        //     service.nextTurn();
+
+        //     return;
+        // }
+
+        // if (!scout.shouldMove) {
+        //     service.multilineResponseQuery(`LOOK_AROUND ${scout.id}`, 14, (response) => {
+        //         scout.shouldMove = true;
+
+        //         theGame.chartScoutData(scout, response);
+
+        //         logger.debug(response);
+
+        //         service.nextTurn();
+        //     });
+        //     return;
+        // }
+
+        // if (scout.shouldMove) {
+        //     service.command({serverCommand: 'MOVE', args: [`${scout.id}`]}, () => {
+        //         scout.shouldMove = false;
+
+        //         service.nextTurn();
+        //     });
+
+        //     return;
+        // }
+    });
+    });
+    });
+    });
     });
 };
 

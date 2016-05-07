@@ -22,13 +22,15 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             turnTime: 0,
             commandLimit: 0,
             workersCount: 0,
+            stack: null,
             stackBorderCoordinates: null,
             scoutId: '',
-            map: [],
+            floodStatus: {},
+            forecast: {},
+            workers: [],
             magazines: [],
             objects: [],
-            workers: [],
-            floodStatus: {}
+            map: [],
         };
     };
 
@@ -95,7 +97,54 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
         const type = state.map[y][x].tileType;
         const objectTypes = [tileTypes.myObject, tileTypes.object, tileTypes.magazine];
 
-        return objectTypes.indexOf(type);
+        const result = objectTypes.indexOf(type);
+        // console.log('is object?!', type, result);
+
+        return result !== -1;
+    };
+
+    const getVectorAroundObjects = (pointFrom, pointTo) => {
+        const vectors = [
+            {x: 0, y: 1},
+            {x: 0, y: -1},
+            {x: 1, y: 0},
+            {x: 1, y: 1},
+            {x: 1, y: -1},
+            {x: -1, y: 0},
+            {x: -1, y: 1},
+            {x: -1, y: -1}
+        ];
+
+        let distance = 9999;
+        let vector = null;
+        vectors.forEach(v => {
+            const nextPointFrom = {x: pointFrom.x + v.x, y: pointFrom.y + v.y};
+            if (isObject(nextPointFrom.x, nextPointFrom.y)) {
+                return;
+            }
+            const possibleVector = getVector(nextPointFrom, pointTo);
+            const possibleDistance = possibleVector.x + possibleVector.y;
+
+            if (possibleDistance < distance) {
+                distance = possibleDistance;
+                vector = possibleVector;
+            }
+        });
+
+        return normalize(vector);
+    };
+
+    const getObjectCoordinates = object => {
+        const origin = object.coordinates;
+
+        const maxY = object.size.height;
+        const maxX = object.size.width;
+
+        for (let y = 0; y < maxY; y++) {
+            for (let x = 0; x < maxX; x++) {
+
+            }
+        }
     };
 
     return {
@@ -110,6 +159,7 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                 commandLimit: parseInt(commandLimit, 10)
             });
 
+            console.log(state.side);
             state.map = range(state.side).map(y => range(state.side).map(x => {
                 return getLandTile(x, y);
             }));
@@ -168,14 +218,17 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             if (!state.stackBorderCoordinates) {
                 const stack = closestObject(state.magazines[0].coordinates, state.objects);
                 const stackBorderCoordinates = [];
-                for (let y = 0; y < stack.size.height + 2; y++) {
-                    for (let x = 0; x < stack.size.width + 2; x++) {
-                        const edge = ((y === 0) && (x === 0)) ||
-                            ((y === 0) && (x === stack.size.width + 2)) ||
-                            ((y === stack.size.height + 2) && (x === 0)) ||
-                            ((y === stack.size.height + 2) && (x === stack.size.width + 2));
+                const maxY = stack.size.height + 2;
+                const maxX = stack.size.width + 2;
+                for (let y = 0; y < maxY; y++) {
+                    for (let x = 0; x < maxX; x++) {
+                        const edge =
+                            ((y === 0) && (x === 0)) ||
+                            ((y === 0) && (x === (maxX - 1))) ||
+                            ((y === (maxY - 1)) && (x === 0)) ||
+                            ((y === (maxY - 1)) && (x === (maxX - 1)));
 
-                        if (!edge) {
+                        if (!edge && !isObject(stack.coordinates.x - 1 + x, stack.coordinates.y - 1 + y)) {
                             stackBorderCoordinates.push({
                                 x: stack.coordinates.x - 1 + x,
                                 y: stack.coordinates.y - 1 + y
@@ -184,6 +237,7 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                     }
                 }
 
+                state.stack = stack;
                 state.stackBorderCoordinates = stackBorderCoordinates;
             }
 
@@ -245,34 +299,16 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                 return {x: 0, y: 0};
             }
 
-            let vector = normalize(getVector(pointFrom, nextBorderWithoutSandbags));
-
-            const vectors = [
-                {x: 0, y: 0},
-                {x: 0, y: 1},
-                {x: 0, y: -1},
-                {x: 1, y: 0},
-                {x: 1, y: 1},
-                {x: 1, y: -1},
-                {x: -1, y: 0},
-                {x: -1, y: 1},
-                {x: -1, y: -1}
-            ];
-
-            while (!isObject(pointFrom.x + vector.x, pointFrom.y + vector.y)) {
-                vector = vectors[getRandomInt(0, vectors.length)];
-            }
-
-            return vector;
+            return getVectorAroundObjects(pointFrom, nextBorderWithoutSandbags);
         },
         vectorToMagazine (pointFrom) {
             return normalize(getVector(pointFrom, state.magazines[0].coordinates));
         },
-        isStack ({xSomething, ySomething}) {
+        isStack ({x, y}) {
             return state.stackBorderCoordinates.find(borderCoordinates =>
                 !state.map[borderCoordinates.y][borderCoordinates.x].sandBags  &&
-                borderCoordinates.x === xSomething &&
-                borderCoordinates.y === ySomething);
+                borderCoordinates.x === x &&
+                borderCoordinates.y === y);
         },
         getScout () {
             const newScout = () => {
@@ -338,6 +374,11 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                 height: parseInt(height, 10),
                 tillEnd: parseInt(tillEnd, 10)
             };
+
+            updateStateLog();
+        },
+        setForecast (response) {
+            state.forecast = response;
 
             updateStateLog();
         },
