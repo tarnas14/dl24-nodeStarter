@@ -221,7 +221,14 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             return state.map[y][x];
         },
         vectorToStack (pointFrom) {
-            return normalize(getVector(pointFrom, state.stackCoordinates));
+            const vector = normalize(getVector(pointFrom, state.stackCoordinates));
+
+            if (isObject(pointFrom.x + vector.x, pointFrom.y + vector.y)) {
+                return {
+                    x: vector.x < 1 ? vector.x + 1 : (vector.x > -1) ? vector.x - 1 : 0,
+                    y: vector.y
+                }
+            }
         },
         vectorToMagazine (pointFrom) {
             return normalize(getVector(pointFrom, state.magazines[0].coordinates));
