@@ -144,10 +144,6 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                             tileType: type
                         };
 
-                        if (tile.tileType === tileTypes.magazine) {
-                            console.log(`mag ${tile.x} x ${tile.y}`);
-                        }
-
                         updateTile(tile);
                     }
                 }

@@ -111,7 +111,7 @@ const gameLoop = (service) => {
                                 expectedNumberOfLines: 1
                             };
                         }),
-                        responses => {
+                        () => {
                             //leave
                             service.command({
                                 serverCommand: 'LEAVE',

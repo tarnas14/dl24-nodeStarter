@@ -73,24 +73,18 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
             this.multilineResponseQuery(query, 1, arrayResponse => {
                 const [response] = arrayResponse;
 
-                callback(response);
+                callback(response || '');
             });
         },
         multilineResponseQuery (query, expectedNumberOfLines, callback) {
-            let lines = [];
-
             connection.on('data', function commandHandler (data) {
-                if (data === '\n') {
-                    return;
-                }
-
                 const saneData = data.sanitized();
 
-                if (saneData.startsWith('waiting')) {
-                    waitTillNextTurn(saneData, connection, commandHandler, startGameLoop.bind(null, service));
-
+                if (data === '\n' || saneData === 'ok') {
                     return;
                 }
+
+                emitDebug({query, expectedNumberOfLines, data}, 'im going insane, ha ha');
 
                 if (saneData.startsWith('failed')) {
                     connection.removeListener('data', commandHandler);
@@ -101,49 +95,50 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                     return;
                 }
 
-                const handleMultipleLines = (responseLines) => {
-                    const waitResponse = responseLines.find(line => line.startsWith('waiting'));
-
-                    if (waitResponse) {
-                        waitTillNextTurn(waitResponse, connection, commandHandler, startGameLoop.bind(null, service));
-                    }
-
-                    const numberOfExpectedLines = parseInt(expectedNumberOfLines || responseLines[0], 10);
-                    if (numberOfExpectedLines === 0) {
-                        connection.removeListener('data', commandHandler);
-                        eventEmitter.emit('receivedFromServer', lines, query);
-                        callback(lines);
-                    }
-                    if (!expectedNumberOfLines) {
-                        lines = responseLines.slice(1);
-                    } else {
-                        lines = responseLines;
-                    }
-                };
-
+                let responseLines = [];
                 if (saneData.startsWith('ok')) {
-                    handleMultipleLines(
-                        saneData.split('\n').map((line) => line.sanitized()).slice(1)
-                    );
+                    responseLines = saneData.split('\n').map((line) => line.sanitized()).slice(1);
                 } else {
-                    handleMultipleLines(
-                        saneData.split('\n').map((line) => line.sanitized())
-                    );
+                    responseLines = saneData.split('\n').map((line) => line.sanitized());
                 }
 
-                if (lines.length) {
-                    connection.removeListener('data', commandHandler);
-                    eventEmitter.emit('receivedFromServer', lines, query);
-                    callback(lines);
-
-                    return;
+                if (!expectedNumberOfLines) {
+                    responseLines = responseLines.slice(1);
                 }
+
+                emitDebug(responseLines, 'handledMultiple lines');
+                connection.removeListener('data', commandHandler);
+                eventEmitter.emit('receivedFromServer', responseLines, query);
+
+                callback(responseLines);
             });
 
             connection.write(query.withTerminator(), () => eventEmitter.emit('sentToServer', query));
         },
         nextTurn () {
-            this.singleLineResponseQuery('wait', () => {});
+            connection.on('data', function waitHandler (data) {
+                if (data === '\n') {
+                    return;
+                }
+
+                const saneData = data.sanitized();
+
+                if (saneData.startsWith('waiting')) {
+                    const millisecondsTillNextTurn = getMillisecondsTillNextTurnFromServerResponse(saneData);
+                    eventEmitter.emit('waiting', millisecondsTillNextTurn);
+
+                    return;
+                }
+
+                if (saneData === 'ok') {
+                    connection.removeListener('data', waitHandler);
+                    startGameLoop(service);
+
+                    return;
+                }
+            });
+
+            connection.write('WAIT'.withTerminator(), () => {});
         },
         command ({serverCommand, args}, callback) {
             if (!args.length) {
@@ -172,17 +167,13 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
 
                 if (saneData.startsWith('waiting')) {
                     waitTillNextTurn(saneData, connection, commandHandler, startGameLoop.bind(null, service));
+
                     return;
                 }
 
                 const oks = saneData.split('\n').map((line) => line.sanitized());
 
-                if (oks.find(ok => ok !== 'ok')) {
-                    eventEmitter.emit('error', {description: 'expected only oks after command wtf, fuck that, starting next turn immediately xD', oks});
-
-                    connection.removeListener('data', commandHandler);
-                    startGameLoop(service);
-                }
+                eventEmitter.emit('receivedFromServer', oks, {serverCommand, args});
 
                 expectedOks -= oks.length;
 
@@ -196,7 +187,9 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
 
             args.forEach(arg => {
                 const commandWithArgs = `${serverCommand} ${arg}`;
-                connection.write(commandWithArgs.withTerminator(), () => eventEmitter.emit('sentToServer', commandWithArgs));
+                connection.write(commandWithArgs.withTerminator(), () => {
+                    eventEmitter.emit('sentToServer', commandWithArgs);
+                });
             });
         },
         multipleQueries (queries, callback) {
