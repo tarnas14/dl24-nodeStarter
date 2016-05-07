@@ -6,5 +6,6 @@ module.exports = {
     [tileTypes.object]: 'brown',
     [tileTypes.magazine]: 'green',
     [tileTypes.worker]: 'blue',
-    [tileTypes.sandBags]: 'yellow'
+    [tileTypes.dudeWithSandBags]: 'blue',
+    [tileTypes.sandBags]: 'yellow',
 };

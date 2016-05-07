@@ -104,7 +104,7 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
 
     const isObject = (x, y) => {
         const type = state.map[y][x].tileType;
-        const objectTypes = [tileTypes.myObject, tileTypes.object, tileTypes.magazine];
+        const objectTypes = [tileTypes.myObject, tileTypes.object, tileTypes.magazine, tileTypes.dudeWithSandBags];
 
         const result = objectTypes.indexOf(type);
         // console.log('is object?!', type, result);
@@ -400,14 +400,43 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                         break;
                     case '#':
                         break;
-                    case 'w':
+                    case 'W':
                         tile.tileType = tileTypes.magazine;
                         updateTile(tile);
                         break;
-                    case 'x':
+                    case 'X':
                         tile.tileType = state.map[tile.y][tile.x].tileType === tileTypes.myObject
                             ? tileTypes.myObject
                             : tileTypes.object;
+                        updateTile(tile);
+                        break;
+                    default:
+                        tile.tileType = tileTypes.sandBags;
+                        tile.sandBags = sandBagsToInt(tileType.toLowerCase(), tile);
+                        updateTile(tile);
+                        break;
+                    }
+                }
+            }
+
+            for (let y = 8; y < 15; ++y) {
+                const yLine = scoutResponse[y - 1];
+                for (let x = 1; x < 8; ++x) {
+                    const tileType = yLine[x - 1];
+                    const tile = {
+                        x: scout.x + x - 4,
+                        y: scout.y + y - 4
+                    };
+
+                    switch (tileType) {
+                    case '.':
+                        break;
+                    case '#':
+                        break;
+                    case 'b':
+                        break;
+                    case 'B':
+                        tile.tileType = tileTypes.dudeWithSandBags;
                         updateTile(tile);
                         break;
                     default:

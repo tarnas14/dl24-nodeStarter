@@ -4,5 +4,6 @@ module.exports = {
     object: 'object',
     magazine: 'magazine',
     worker: 'worker',
-    sandBags: 'sandBags'
+    dudeWithSandBags: 'dudeWithSandBags',
+    sandBags: 'sandBags',
 };
