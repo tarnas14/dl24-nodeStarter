@@ -2,10 +2,10 @@
 const namespace = process.argv[2] || 'example';
 
 const dl24client = require('../../dl24client');
-const logger = require('../../logger')(namespace);
-const gridder = require('../../gridder')(namespace);
-const stateUpdater = require('../../stateUpdater')(namespace);
 const config = require('./config');
+const logger = require('../../logger')(namespace, config.loggerPort);
+const gridder = require('../../gridder')(namespace, config.gridderPort);
+const stateUpdater = require('../../stateUpdater')(namespace, config.stateUpdaterPort);
 
 const range = (numberOfElements) => {
     return Array.apply(null, Array(numberOfElements)).map((_, i) => i);

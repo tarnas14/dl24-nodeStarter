@@ -1,11 +1,9 @@
 'use strict';
 const request = require('request');
 
-const port = 3002;
-
 let lastErrorCode = null;
 
-const post = (resource, data, callback) => {
+const post = (port, resource, data, callback) => {
     request.post({
         url: `http://localhost:${port}/${resource}`,
         json: true,
@@ -36,16 +34,19 @@ const post = (resource, data, callback) => {
     });
 };
 
-const gridderFactory = (gridName) => {
+const gridderFactory = (gridName, port) => {
+    const defaultPort = 3002;
+    port = port || defaultPort;
+
     return {
         newGrid (gridDefinition, callback) {
-            post('newGrid', {
+            post(port, 'newGrid', {
                 name: gridName,
                 gridDefinition
             }, callback);
         },
         updateCell (cellDefinition) {
-            post('updatecell', {
+            post(port, 'updatecell', {
                 gridName,
                 cell: cellDefinition
             });

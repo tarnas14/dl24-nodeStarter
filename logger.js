@@ -1,9 +1,7 @@
 'uset strict';
 const request = require('request');
 
-const port = 3001;
-
-const post = (data) => {
+const post = (port, data) => {
     request.post({
         url: `http://localhost:${port}/log`,
         json: true,
@@ -15,10 +13,13 @@ const post = (data) => {
     });
 };
 
-const loggerFactory = (namespace) => {
+const loggerFactory = (namespace, port) => {
+    const defaultPort = 3001;
+    port = port || defaultPort;
+
     return {
         info (type, logEntry) {
-            post({
+            post(port, {
                 timestamp: new Date(),
                 namespace,
                 type,

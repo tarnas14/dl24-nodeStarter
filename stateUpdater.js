@@ -1,11 +1,9 @@
 'use strict';
 const request = require('request');
 
-const port = 3003;
-
 let lastErrorCode = null;
 
-const post = (resource, data, callback) => {
+const post = (port, resource, data, callback) => {
     request.post({
         url: `http://localhost:${port}/${resource}`,
         json: true,
@@ -36,10 +34,13 @@ const post = (resource, data, callback) => {
     });
 };
 
-const stateUpdaterFactory = (namespace) => {
+const stateUpdaterFactory = (namespace, port) => {
+    const defaultPort = 3003;
+    port = port || defaultPort;
+
     return {
         newState (state, callback) {
-            post('newState', {
+            post(port, 'newState', {
                 namespace: namespace,
                 ...state
             }, callback);
