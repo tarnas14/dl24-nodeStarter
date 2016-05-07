@@ -66,7 +66,9 @@ const ObservingCell = React.createClass({
                     backgroundColor: cell.color || cellStyles.background,
                     display: 'inline-block',
                     width: side,
-                    height: '100%'
+                    height: '100%',
+                    borderRight: '1px solid #eaeaea',
+                    borderBottom: '1px solid #eaeaea'
                 }}
             ></div>
         );

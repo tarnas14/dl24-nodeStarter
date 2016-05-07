@@ -7,7 +7,7 @@ import io from 'socket.io-client';
 const App = React.createClass({
     getInitialState () {
         return {
-            entries: []
+            states: []
         };
     },
 

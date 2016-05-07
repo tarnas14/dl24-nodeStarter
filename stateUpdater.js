@@ -40,10 +40,8 @@ const stateUpdaterFactory = (namespace, port) => {
 
     return {
         newState (state, callback) {
-            post(port, 'newState', {
-                namespace: namespace,
-                ...state
-            }, callback);
+            state.namespace = namespace;
+            post(port, 'newState', state, callback);
         }
     };
 };

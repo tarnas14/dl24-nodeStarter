@@ -61,7 +61,7 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                 if (saneData.startsWith('failed')) {
                     connection.removeListener('data', commandHandler);
 
-                    setTimeout(startGameLoop.bnd(null, this), 1000);
+                    setTimeout(startGameLoop.bind(null, service), 1000);
                     eventEmitter.emit('error', getErrorFromServerResponse(saneData));
 
                     return;
@@ -101,7 +101,7 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
 
             connection.write(query.withTerminator(), () => eventEmitter.emit('sentToServer', query));
         },
-        multilineResponseQuery (query, callback) {
+        multilineResponseQuery (query, expectedNumberOfLines, callback) {
             let lines = [];
 
             connection.on('data', function commandHandler (data) {
@@ -122,22 +122,33 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
 
                 if (saneData.startsWith('ok')) {
                     const responseLines = saneData.split('\n').map((line) => line.sanitized()).slice(1);
-                    const numberOfExpectedLiens = parseInt(responseLines[0], 10);
-                    if (numberOfExpectedLiens === 0) {
+                    const numberOfExpectedLines = parseInt(
+                        expectedNumberOfLines || responseLines[0], 10);
+                    if (numberOfExpectedLines === 0) {
                         connection.removeListener('data', commandHandler);
                         eventEmitter.emit('receivedFromServer', lines, query);
                         callback(lines);
                     }
-                    lines = responseLines.slice(1);
+                    if (!expectedNumberOfLines) {
+                        lines = responseLines.slice(1);
+                    } else {
+                        lines = responseLines;
+                    }
                 } else {
                     const responseLines = saneData.split('\n').map((line) => line.sanitized());
-                    const numberOfExpectedLiens = parseInt(responseLines[0], 10);
-                    if (numberOfExpectedLiens === 0) {
+                    const numberOfExpectedLines = parseInt(
+                        expectedNumberOfLines || responseLines[0],
+                        10);
+                    if (numberOfExpectedLines === 0) {
                         connection.removeListener('data', commandHandler);
                         eventEmitter.emit('receivedFromServer', lines, query);
                         callback(lines);
                     }
-                    lines = responseLines.slice(1);
+                    if (!expectedNumberOfLines) {
+                        lines = responseLines.slice(1);
+                    } else {
+                        lines = responseLines;
+                    }
                 }
 
                 if (lines.length) {
@@ -168,7 +179,7 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                 if (saneData.startsWith('failed')) {
                     connection.removeListener('data', commandHandler);
 
-                    setTimeout(startGameLoop.bnd(null, this), 1000);
+                    setTimeout(startGameLoop.bind(null, service), 1000);
                     eventEmitter.emit('error', getErrorFromServerResponse(saneData));
 
                     return;
@@ -214,6 +225,9 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                 const commandWithArgs = `${serverCommand} ${arg}`;
                 connection.write(commandWithArgs.withTerminator(), () => eventEmitter.emit('sentToServer', commandWithArgs));
             });
+        },
+        weirdShit ({serverCommand, args, expectedNumberOfLines}, callback) {
+
         }
     };
 

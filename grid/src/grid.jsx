@@ -17,6 +17,16 @@ const Grid = React.createClass({
         };
     },
 
+    updateSide (e) {
+        const sideValue = e.target.value ? parseInt(e.target.value, 10) : 0;
+        this.setState({
+            styles: {
+                ...this.state.styles,
+                side: sideValue
+            }
+        });
+    },
+
     render () {
         const {data} = this.props;
         const {styles} = this.state;
@@ -25,6 +35,7 @@ const Grid = React.createClass({
         return (
             <div>
                 <h3>{data.name}</h3>
+                <div><input type="number" onChange={this.updateSide} value={this.state.styles.side} /></div>
                 <div className="grid" style={{display: 'inline-block'}}>
                     {data.gridDefinition.map.map((row, index) => (
                         <div
