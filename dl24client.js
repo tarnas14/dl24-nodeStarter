@@ -135,6 +135,7 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
 
                 if (lines <= something.length) {
                     doRead();
+
                     return;
                 }
 

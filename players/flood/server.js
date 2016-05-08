@@ -64,8 +64,7 @@ const gameLoop = (service) => {
         }
 
         const shouldTakeBags = worker => {
-            const tile = theGame.getTile(worker);
-            return !worker.bags && theGame.tileHasMoreThanEnoughBags(tile);
+            return !worker.bags && theGame.tileHasMoreThanEnoughBags(worker);
         };
 
         const shouldLeaveBags = worker => {
