@@ -66,7 +66,7 @@ const gameLoop = (service) => {
 
         const shouldTakeBags = worker => {
             const tile = theGame.getTile(worker);
-            return !worker.bags && tile.tileType === tileTypes.magazine && tile.bags;
+            return !worker.bags && theGame.tileHasMoreThanEnoughBags(tile);
         };
 
         const shouldLeaveBags = worker => {
@@ -121,7 +121,6 @@ const gameLoop = (service) => {
             workerMoves
         });
 
-        let writes = [];
         const scouts = [];
         theGame.getWorkers().forEach(worker => {
             if (!scouts.find(scout => scout.x === worker.x && scout.y === worker.y)) {
@@ -129,13 +128,34 @@ const gameLoop = (service) => {
             }
         });
 
+        const workersBuyingWheelbarrows = workersThatShouldTakeStuff.filter(worker => {
+            return false;
+            const tile = theGame.getTile(worker);
+
+            if ( tile.bags * 0.75 < theGame.getWheelBarrowPrice()) {
+                return false;
+            }
+
+            return false;
+
+            theGame.wheelBarrowBought;
+        });
+
+        let writes = [];
+
         writes = [...writes, ...scouts.map(worker => `LOOK_AROUND ${worker.id}`)];
-        writes = [...writes, ...workersThatShouldTakeStuff.map(worker => `TAKE ${worker.id} ${worker.capacity}`)];
+
+        workersBuyingWheelbarrows.forEach(worker => {
+            writes.push(`BUY_WHEELBARROW ${worker.id}`);
+            worker.capacity = 5;
+        });
+
+        writes = [...writes, ...workersThatShouldTakeStuff.map(worker => `TAKE ${worker.id} ${worker.capacity - worker.bags}`)];
         writes = [...writes, ...workersThatShouldLeaveStuff.map(worker => `LEAVE ${worker.id} ${worker.capacity}`)];
         writes = [...writes, ...workerMoves.map(workerMove => `MOVE ${workerMove.workerId} ${workerMove.x} ${workerMove.y}`)];
 
         service.multiWrite(writes, () => {
-            service.read(scouts.length * 15 + workersThatShouldTakeStuff.length * 2 + workersThatShouldLeaveStuff.length + workerMoves.length, (multiRead) => {
+            service.read(scouts.length * 15 + workersBuyingWheelbarrows.length + workersThatShouldTakeStuff.length * 2 + workersThatShouldLeaveStuff.length + workerMoves.length, (multiRead) => {
                 for (let i = 0; i < scouts.length; ++i) {
                     const scout = scouts[i];
                     const scoutReport = [];

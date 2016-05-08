@@ -306,6 +306,9 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
 
             updateStateLog();
         },
+        getWheelBarrowPrice () {
+            return state.wheelBarrowPrice;
+        },
         mapObjects (objectsResponse) {
             const objects = objectsResponse.map(objectResponse => {
                 const [xCoordinate, yCoordinate, width, height, value, bags] = objectResponse.split(' ');
@@ -349,6 +352,11 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             }
 
             updateStateLog();
+        },
+        tileHasMoreThanEnoughBags (tileInQuestion) {
+            const tile = this.getTile(tileInQuestion);
+
+            return (tile.bags || 0) > getMinFenceHeight();
         },
         mapWorkers (workersResponse) {
             const workers = workersResponse.map(workerResponse => {
