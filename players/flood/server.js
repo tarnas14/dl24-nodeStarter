@@ -69,12 +69,19 @@ const gameLoop = (service) => {
         };
 
         const shouldLeaveBags = worker => {
+            console.log('SHOULD LEAVE\n\n\n\n');
             const tile = theGame.getTile(worker);
             if (!tile) {
+                console.log('FALSE because no tile wtf');
+                console.log('\n\n\n\n');
                 return false;
             }
 
-            return worker.bags && theGame.isStack(tile);
+            const isStack = theGame.isStack(tile);
+            console.log(worker.bags, isStack);
+            console.log('\n\n\n\n');
+
+            return worker.bags && isStack;
         };
 
         const workersThatShouldTakeStuff = theGame.getWorkers().filter(worker => shouldTakeBags(worker));

@@ -173,9 +173,11 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
     };
 
     const borderWithNotEnoughBags = stackBorder => {
-        const sandBags = state.map[stackBorder.y][stackBorder.x].sandBags;
+        const sandBags = state.map[stackBorder.y][stackBorder.x].sandBags || 0;
 
         const fenceHeight = average(state.forecast.map(f => f.hMax));
+
+        console.log(`is ${sandBags} lower than ${fenceHeight} ==> ${sandBags < fenceHeight}`);
 
         return sandBags < fenceHeight;
     };
@@ -350,14 +352,14 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                 borderCoordinates.x === x &&
                 borderCoordinates.y === y &&
                 borderWithNotEnoughBags(borderCoordinates));
-            logger.debug({description: 'is stack?', data: 'IS STACK', tile: state.map[y][x], result});
+            console.log(x, y, state.stackBorderCoordinates);
 
             return result;
         },
         chartScoutData (scout, scoutResponse) {
             const sandBagsToInt = (sandbagString, tile) => {
                 const showResult = result => {
-                    // console.log(`${sandbagString} => ${result}`);
+                    console.log(`${sandbagString} => ${result}`);
                 };
 
                 if (sandbagString.toLowerCase() === 'z') {
@@ -415,34 +417,34 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                 }
             }
 
-            for (let y = 8; y < 15; ++y) {
-                const yLine = scoutResponse[y - 1];
-                for (let x = 1; x < 8; ++x) {
-                    const tileType = yLine[x - 1];
-                    const tile = {
-                        x: scout.x + x - 4,
-                        y: scout.y + y - 7 - 4
-                    };
+            // for (let y = 8; y < 15; ++y) {
+            //     const yLine = scoutResponse[y - 1];
+            //     for (let x = 1; x < 8; ++x) {
+            //         const tileType = yLine[x - 1];
+            //         const tile = {
+            //             x: scout.x + x - 4,
+            //             y: scout.y + y - 7 - 4
+            //         };
 
-                    switch (tileType) {
-                    case '.':
-                        break;
-                    case '#':
-                        break;
-                    case 'b':
-                        break;
-                    case 'B':
-                        tile.tileType = tileTypes.dudeWithSandBags;
-                        updateTile(tile);
-                        break;
-                    default:
-                        tile.tileType = tileTypes.sandBags;
-                        tile.sandBags = sandBagsToInt(tileType.toLowerCase(), tile);
-                        updateTile(tile);
-                        break;
-                    }
-                }
-            }
+            //         switch (tileType) {
+            //         case '.':
+            //             break;
+            //         case '#':
+            //             break;
+            //         case 'b':
+            //             break;
+            //         case 'B':
+            //             tile.tileType = tileTypes.dudeWithSandBags;
+            //             updateTile(tile);
+            //             break;
+            //         default:
+            //             tile.tileType = tileTypes.sandBags;
+            //             tile.sandBags = sandBagsToInt(tileType.toLowerCase(), tile);
+            //             updateTile(tile);
+            //             break;
+            //         }
+            //     }
+            // }
         },
         floodStatus (response) {
             const [height, tillEnd] = response;
