@@ -20,12 +20,19 @@ const getMillisecondsTillNextTurnFromServerResponse = (waitingResponse) => {
 
 const getErrorFromServerResponse = (errorResponse) => {
     const errorRegex = /^failed (\d+) (.+)/;
-    const [, code, message] = errorRegex.exec(errorResponse);
+    try {
+        const [, code, message] = errorRegex.exec(errorResponse);
 
-    return {
-        code,
-        message
-    };
+        return {
+            code,
+            message
+        };
+    } catch (error) {
+        return {
+            code: 'error with regex lol',
+            mesage: error.toString()
+        };
+    }
 };
 
 let turn = 1;
@@ -79,6 +86,7 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
 
     const startGameLoop = (service) => {
         console.log(`turn ${turn++}`);
+        something = [];
         gameLoop(service);
     };
 
@@ -117,6 +125,9 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                     const error = readLines.find(readLine => readLine.toLowerCase().startsWith('failed'));
                     if (error) {
                         eventEmitter.emit('error', getErrorFromServerResponse(error));
+                        startGameLoop(service);
+
+                        return;
                     }
 
                     callback(readLines);

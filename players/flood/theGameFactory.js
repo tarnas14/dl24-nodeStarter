@@ -174,14 +174,30 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
         return coordinates;
     };
 
+    const max = numbers => {
+        let maxNr = -99999;
+
+        numbers.forEach(number => {
+            if (number > maxNr) {
+                maxNr = number;
+            }
+        });
+
+        return maxNr;
+    };
+
+    const getMinFenceHeight = () => {
+        return Math.floor((state.forecast && 0.75 * max(state.forecast.map(f => f.hMax))) || [7]);
+    };
+
     const borderWithNotEnoughBags = stackBorder => {
-        const sandBags = state.map[stackBorder.y][stackBorder.x].sandBags || 0;
+        const sandBags = state.map[stackBorder.y][stackBorder.x].bags || 0;
 
-        const fenceHeight = Math.floor(1.5 * ((state.forecast && average(state.forecast.map(f => f.hMax))) || [7]));
+        const minFenceHeight = getMinFenceHeight();
 
-        //console.log(`is ${sandBags} lower than ${fenceHeight} ==> ${sandBags < fenceHeight}`);
+        console.log(`is ${sandBags} lower than ${minFenceHeight} ==> ${sandBags < minFenceHeight}`);
 
-        return sandBags < fenceHeight;
+        return sandBags < minFenceHeight;
     };
 
     const getBorders = object => {
@@ -220,6 +236,37 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
 
         state.stack = stack;
         state.stackBorderCoordinates = stackBorderCoordinates;
+    };
+
+    const findClosestTileTo = (pointFrom, predicate, backupCallback) => {
+        const vectors = [{y: -1, x: 0}, {x: 1, y: 0}, {y: 1, x: 0}, {x: -1, y: 0}];
+
+        let point = pointFrom;
+
+        let jumpCount = 1;
+        let jumpsInJumpCount = 0;
+        let vectorId = 0;
+        for (let checks = 0; checks < 100; checks++) {
+            if (checks % 2 === 0 && checks !== 0) {
+                jumpCount += 1;
+                jumpsInJumpCount = 0;
+            }
+
+            //jump
+            const vector = vectors[vectorId];
+            point = {x: point.x + vector.x, y: point.y + vector.y};
+
+            if (predicate(point)) {
+                return state.map[point.y][point.x];
+            }
+
+            jumpsInJumpCount += 1;
+            if (jumpsInJumpCount % jumpCount === 0) {
+                vectorId = vectorId + 1 < vectors.length ? vectorId + 1 : 0;
+            }
+        }
+
+        return backupCallback();
     };
 
     let lastWorldDescriptor = '';
@@ -365,7 +412,12 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             return getVectorAroundObjects(pointFrom, nextBorderWithoutSandbags);
         },
         vectorToMagazine (pointFrom) {
-            return normalize(getVector(pointFrom, state.magazines[0].coordinates));
+            const magazineCoordinates = state.magazines[0].coordinates;
+            const closestTileWithBagsToTake = findClosestTileTo(pointFrom, tile => {
+                return (state.map[tile.y][tile.x] && state.map[tile.y][tile.x].bags) || 0 > getMinFenceHeight();
+            }, () => magazineCoordinates);
+
+            return normalize(getVector(pointFrom, closestTileWithBagsToTake));
         },
         isStack ({x, y}) {
             const result = state.stackBorderCoordinates.find(borderCoordinates =>
@@ -383,7 +435,7 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                 };
 
                 if (sandbagString.toLowerCase() === 'z') {
-                    const more = (state.map[tile.y][tile.x].sandBags || 30) + 1;
+                    const more = (state.map[tile.y][tile.x].bags || 30) + 1;
 
                     showResult(more);
 
@@ -430,7 +482,7 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                         break;
                     default:
                         tile.tileType = tileTypes.sandBags;
-                        tile.sandBags = sandBagsToInt(tileType.toLowerCase(), tile);
+                        tile.bags = sandBagsToInt(tileType.toLowerCase(), tile);
                         updateTile(tile);
                         break;
                     }

@@ -130,8 +130,8 @@ const gameLoop = (service) => {
         });
 
         writes = [...writes, ...scouts.map(worker => `LOOK_AROUND ${worker.id}`)];
-        writes = [...writes, ...workersThatShouldTakeStuff.map(worker => `TAKE ${worker.id} 1`)];
-        writes = [...writes, ...workersThatShouldLeaveStuff.map(worker => `LEAVE ${worker.id} 1`)];
+        writes = [...writes, ...workersThatShouldTakeStuff.map(worker => `TAKE ${worker.id} ${worker.capacity}`)];
+        writes = [...writes, ...workersThatShouldLeaveStuff.map(worker => `LEAVE ${worker.id} ${worker.capacity}`)];
         writes = [...writes, ...workerMoves.map(workerMove => `MOVE ${workerMove.workerId} ${workerMove.x} ${workerMove.y}`)];
 
         service.multiWrite(writes, () => {
