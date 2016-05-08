@@ -201,13 +201,7 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
         const maxX = object.size.width + 2;
         for (let y = 0; y < maxY; y++) {
             for (let x = 0; x < maxX; x++) {
-                const edge =
-                    ((y === 0) && (x === 0)) ||
-                    ((y === 0) && (x === (maxX - 1))) ||
-                    ((y === (maxY - 1)) && (x === 0)) ||
-                    ((y === (maxY - 1)) && (x === (maxX - 1)));
-
-                if (!edge && !isObject(object.coordinates.x - 1 + x, object.coordinates.y - 1 + y)) {
+                if (!isObject(object.coordinates.x - 1 + x, object.coordinates.y - 1 + y)) {
                     borders.push({
                         x: object.coordinates.x - 1 + x,
                         y: object.coordinates.y - 1 + y
@@ -430,12 +424,8 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
         },
         vectorToMagazine (pointFrom) {
             const magazineCoordinates = state.magazines[0].coordinates;
-            const closestTileWithBagsToTake = findClosestTileTo(pointFrom, (tile) => {
-                const fenceTile = this.getTile(tile);
-                return ((fenceTile && fenceTile.bags) || 0) > getMinFenceHeight();
-            }, () => magazineCoordinates);
 
-            return normalize(getVector(pointFrom, closestTileWithBagsToTake));
+            return normalize(getVector(pointFrom, magazineCoordinates));
         },
         isStack ({x, y}) {
             const result = state.stackBorderCoordinates.find(borderCoordinates =>
