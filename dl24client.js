@@ -151,6 +151,13 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
         simpleNextTurn () {
             this.write('WAIT', () => {
                 this.fancyRead(1, ([data]) => {
+                    if (!data.toLowerCase().startsWith('waiting')) {
+                        eventEmitter.emit('error', `expected waiting response, got '${data}'`);
+
+                        startGameLoop(service);
+                        return;
+                    }
+
                     const millisecondsTillNextTurn = getMillisecondsTillNextTurnFromServerResponse(data);
                     eventEmitter.emit('waiting', millisecondsTillNextTurn);
 

@@ -12,7 +12,6 @@ const gridder = require('../../gridder')(namespace, config.gridderPort);
 const stateUpdater = require('../../stateUpdater')(namespace, config.stateUpdaterPort);
 const debugState = require('../../stateUpdater')('debug', config.stateUpdaterPort);
 
-let lastWorldDescriptor = '';
 let theGame = theGameFactory(gridder, logger, stateUpdater, debugState);
 
 const getRandomInt = (min, max) => (Math.floor(Math.random() * (max - min)) + min);
