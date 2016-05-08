@@ -30,7 +30,11 @@ const loggerFactory = (namespace, port) => {
             this.info('error', errorEntry);
         },
         debug (debugEntry) {
-            this.info('debug', debugEntry);
+            post(port, Object.assign({}, {
+                timestamp: new Date(),
+                namespace,
+                type: 'debug'
+            }, debugEntry));
         }
     };
 };

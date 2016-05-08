@@ -39,25 +39,25 @@ const gameLoop = (service) => {
         }
 
         if (theGame.isFlooding()) {
-            const args = [];
+            const writes = [];
             theGame.getWorkers().forEach(fleeingWorker => {
                 const tile = theGame.getTile(fleeingWorker);
 
                 if (tile.tileType !== tileTypes.magazine) {
                     const vector = theGame.vectorToMagazine(fleeingWorker);
 
-                    args.push(`${fleeingWorker.id} ${vector.x} ${vector.y}`);
+                    writes.push(`MOVE ${fleeingWorker.id} ${vector.x} ${vector.y}`);
                 }
             });
 
-            if (!args.length) {
-                service.nextTurn();
+            if (!writes.length) {
+                service.simpleNextTurn();
 
                 return;
             }
 
-            service.command({serverCommand: 'MOVE', args}, () => {
-                service.nextTurn();
+            service.multiWrite(writes, () => {
+                service.simpleNextTurn();
             });
 
             return;
@@ -156,11 +156,9 @@ emitter.on('waiting', millisecondsTillNextTurn => {
     logger.info('waiting', {millisecondsTillNextTurn});
     console.log('waiting till next turn', millisecondsTillNextTurn);
 });
-emitter.on('receivedFromServer', (data, command) => {
-    logger.info('receivedFromServer', {received: data, after: command});
-    console.log(`<== ${data}`);
-});
+emitter.on('receivedFromServer', (data, command) => logger.info('receivedFromServer', {received: data, after: command}));
+emitter.on('receivedFromServer', (data, command) => console.log(`<== ${data}`));
 emitter.on('sentToServer', command => logger.info('sentToServer', command));
-emitter.on('sentToServer', command => console.log(`==> ${command}`));
+//emitter.on('sentToServer', command => console.log(`==> ${command}`));
 emitter.on('rawData', data => logger.info('raw data from server', {data: data}));
 emitter.on('debug', data => logger.debug(data));

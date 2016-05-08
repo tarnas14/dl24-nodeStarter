@@ -12,6 +12,7 @@ String.prototype.sanitized = function sanitized () {
 
 const getMillisecondsTillNextTurnFromServerResponse = (waitingResponse) => {
     const waitingRegex = /^waiting (.+)$/;
+    console.log('WAITING ====> ',waitingResponse.toLowerCase());
     const [, timeTillNextTurnInSeconds] = waitingRegex.exec(waitingResponse.toLowerCase());
 
     return parseFloat(timeTillNextTurnInSeconds) * 1000;
@@ -91,7 +92,6 @@ const dl24client = ({port, host, username, password}, gameLoop, debugState) => {
         },
         fancyRead (linesAfterOk, callback) {
             this.read(linesAfterOk + 1, (lines) => {
-                console.log('hmm', lines[0]);
                 callback(lines.slice(1));
             });
         },
@@ -112,6 +112,11 @@ const dl24client = ({port, host, username, password}, gameLoop, debugState) => {
                     const readLines = [];
                     for (let i = 0; i < lines; ++i) {
                         readLines.push(something.shift());
+                    }
+
+                    const error = readLines.find(readLine => readLine.toLowerCase().startsWith('failed'));
+                    if (error) {
+                        eventEmitter.emit('error', getErrorFromServerResponse(error));
                     }
 
                     callback(readLines);

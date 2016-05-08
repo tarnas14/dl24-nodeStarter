@@ -172,6 +172,14 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
         return coordinates;
     };
 
+    const borderWithNotEnoughBags = stackBorder => {
+        const sandBags = state.map[stackBorder.y][stackBorder.x].sandBags;
+
+        const fenceHeight = average(state.forecast.map(f => f.hMax));
+
+        return sandBags < fenceHeight;
+    };
+
     let lastWorldDescriptor = '';
     return {
         init (worldDescriptorResponse) {
@@ -322,11 +330,7 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             return state.map[y][x];
         },
         vectorToStack (pointFrom) {
-            const nextBorderWithoutSandbags = state.stackBorderCoordinates.find(stackBorder => {
-                const sandBags = state.map[stackBorder.y][stackBorder.x].sandBags;
-
-                return sandBags < average(state.forecast.map(f => f.hMax));
-            }) || state.stackBorderCoordinates[0];
+            const nextBorderWithoutSandbags = state.stackBorderCoordinates.find(stackBorder => borderWithNotEnoughBags(stackBorder)) || state.stackBorderCoordinates[0];
 
             if (!nextBorderWithoutSandbags) {
                 console.log('whole border filled?', state.stackBorderCoordinates);
@@ -334,15 +338,21 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                 return {x: 0, y: 0};
             }
 
+            console.log('GOING TO ==> ', nextBorderWithoutSandbags.x, nextBorderWithoutSandbags.y);
+
             return getVectorAroundObjects(pointFrom, nextBorderWithoutSandbags);
         },
         vectorToMagazine (pointFrom) {
             return normalize(getVector(pointFrom, state.magazines[0].coordinates));
         },
         isStack ({x, y}) {
-            return state.stackBorderCoordinates.find(borderCoordinates =>
+            const result = state.stackBorderCoordinates.find(borderCoordinates =>
                 borderCoordinates.x === x &&
-                borderCoordinates.y === y);
+                borderCoordinates.y === y &&
+                borderWithNotEnoughBags(borderCoordinates));
+            logger.debug({description: 'is stack?', data: 'IS STACK', tile: state.map[y][x], result});
+
+            return result;
         },
         chartScoutData (scout, scoutResponse) {
             const sandBagsToInt = (sandbagString, tile) => {
