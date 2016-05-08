@@ -103,11 +103,11 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
     };
 
     const isObject = (x, y) => {
-        const type = state.map[y][x].tileType;
+        const type = (state.map[y][x] && state.map[y][x].tileType) || tileTypes.magazine;
         const objectTypes = [tileTypes.myObject, tileTypes.object, tileTypes.magazine, tileTypes.dudeWithSandBags];
 
         const result = objectTypes.indexOf(type);
-        // console.log('is object?!', type, result);
+        //console.log('is object?!', type, result);
 
         return result !== -1;
     };
@@ -172,10 +172,18 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
         return coordinates;
     };
 
+    let lastWorldDescriptor = '';
     return {
-        init (worldDescriptionResponse) {
-            console.log(worldDescriptionResponse);
-            const [side, wheelBarrowPrice, goodPrognosis, turnTime, commandLimit] = worldDescriptionResponse.split(' ');
+        init (worldDescriptorResponse) {
+            const [side, wheelBarrowPrice, goodPrognosis, turnTime, commandLimit] = worldDescriptorResponse.split(' ');
+
+            const worldDescriptor = `${side} ${wheelBarrowPrice} ${goodPrognosis} ${turnTime} ${commandLimit}`;
+
+            if (worldDescriptor === lastWorldDescriptor) {
+                return;
+            }
+
+            lastWorldDescriptor = worldDescriptor;
 
             state = Object.assign({}, getInitialState(), {
                 side: parseInt(side, 10),
@@ -336,28 +344,6 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                 borderCoordinates.x === x &&
                 borderCoordinates.y === y);
         },
-        getScout () {
-            const newScout = () => {
-                if (!state.workers.length) {
-                    return null;
-                }
-
-                const withoutBags = state.workers.find(worker => worker.status === workerStatuses.withBags && worker.bags === 0);
-                return withoutBags || state.workers[0];
-            };
-
-            if (!state.scoutId) {
-                const scout = newScout();
-                state.scoutId = scout ? scout.id : '';
-
-                return scout;
-            }
-
-            const scout = state.workers.find(worker => worker.id === state.scoutId);
-            state.scoutId = scout ? scout.id : '';
-
-            return scout;
-        },
         chartScoutData (scout, scoutResponse) {
             const sandBagsToInt = (sandbagString, tile) => {
                 const showResult = result => {
@@ -386,7 +372,6 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                 return sigh[sandbagString];
             };
 
-            debugState.newState(scoutResponse);
             for (let y = 1; y < 8; ++y) {
                 const yLine = scoutResponse[y - 1];
                 for (let x = 1; x < 8; ++x) {

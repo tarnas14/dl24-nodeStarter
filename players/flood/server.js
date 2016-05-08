@@ -18,32 +18,22 @@ let theGame = theGameFactory(gridder, logger, stateUpdater, debugState);
 const getRandomInt = (min, max) => (Math.floor(Math.random() * (max - min)) + min);
 
 const gameLoop = (service) => {
-    service.singleLineResponseQuery('DESCRIBE_WORLD', (worldDescriptionResponse) => {
-    service.multilineResponseQuery('LIST_OBJECTS', null, (objectsResponse) => {
-    service.multilineResponseQuery('LIST_WORKERS', null, (workersResponse) => {
-    service.singleLineResponseQuery('FLOOD_STATUS', (floodDescription) => {
-    service.multilineResponseQuery('FORECAST', null, (forecastResponse) => {
+    service.multiWrite(['DESCRIBE_WORLD', 'FLOOD_STATUS', 'FORECAST', 'LIST_OBJECTS', 'LIST_WORKERS'], () => {
+    service.fancyRead(1, ([worldResponse]) => {
+    service.fancyRead(1, ([floodStatus]) => {
+    service.fancyMultipleRead(forecastLines => {
+    service.fancyMultipleRead(objectsLines => {
+    service.fancyMultipleRead(workersLines => {
+        theGame.init(worldResponse);
 
-        const [side, wheelBarrowPrice, goodPrognosis, turnTime, commandLimit] = worldDescriptionResponse.split(' ');
-
-        const worldDescriptor = `${side} ${wheelBarrowPrice} ${goodPrognosis} ${turnTime} ${commandLimit}`;
-
-        if (worldDescriptor !== lastWorldDescriptor) {
-            theGame.init(worldDescriptionResponse);
-
-            lastWorldDescriptor = worldDescriptor;
-        }
-
-        theGame.mapObjects(objectsResponse);
-        theGame.mapWorkers(workersResponse);
-        theGame.floodStatus(floodDescription);
-        theGame.setForecast(forecastResponse);
-
-        //move
+        theGame.mapObjects(objectsLines);
+        theGame.mapWorkers(workersLines);
+        theGame.floodStatus(floodStatus);
+        theGame.setForecast(forecastLines);
 
         if (!theGame.getWorkers().length) {
             console.log('no workers, no problem');
-            service.nextTurn();
+            service.simpleNextTurn();
 
             return;
         }
@@ -123,76 +113,35 @@ const gameLoop = (service) => {
             workerMoves
         });
 
-        // look around
-        console.log('look around');
-        service.multipleQueries(theGame.getWorkers().map(worker => {
-            return {
-                queryText: `LOOK_AROUND ${worker.id}`,
-                expectedNumberOfLines: 14,
-                scout: worker
-            };
-        }), scoutResponses => {
-            if (scoutResponses) {
-                scoutResponses.forEach(scoutResponse => theGame.chartScoutData(scoutResponse.scout, scoutResponse.response));
+        let writes = [];
+        const scouts = [];
+        theGame.getWorkers().forEach(worker => {
+            if (!scouts.find(scout => scout.x === worker.x && scout.y === worker.y)) {
+                scouts.push(worker);
             }
-            // take
-            console.log('take');
-            service.multipleQueries(
-                workersThatShouldTakeStuff.map(workerThatShouldTakeStuff => {
-                    return {
-                        queryText: `TAKE ${workerThatShouldTakeStuff.id} 1`,
-                        expectedNumberOfLines: 1
-                    };
-                }),
-                (takeResp) => {
-                    // leave
-                    console.log(`${takeResp} => leave`);
-                    service.command({
-                        serverCommand: 'LEAVE',
-                        args: workersThatShouldLeaveStuff.map(worker => `${worker.id} 1`)
-                    }, () => {
-                        // move
-                        console.log('move');
-                        service.command({
-                            serverCommand: 'MOVE',
-                            args: workerMoves.map(workerMove => `${workerMove.workerId} ${workerMove.x} ${workerMove.y}`)
-                        }, () => {
-                            console.log('next turn');
-                            service.nextTurn();
-                        });
-                    });
-                }
-            );
         });
 
-        // if (!scout) {
-        //     service.nextTurn();
+        writes = [...writes, ...scouts.map(worker => `LOOK_AROUND ${worker.id}`)];
+        writes = [...writes, ...workersThatShouldTakeStuff.map(worker => `TAKE ${worker.id} 1`)];
+        writes = [...writes, ...workersThatShouldLeaveStuff.map(worker => `LEAVE ${worker.id} 1`)];
+        writes = [...writes, ...workerMoves.map(workerMove => `MOVE ${workerMove.workerId} ${workerMove.x} ${workerMove.y}`)];
 
-        //     return;
-        // }
+        service.multiWrite(writes, () => {
+            service.read(scouts.length * 15 + workersThatShouldTakeStuff.length * 2 + workersThatShouldLeaveStuff.length + workerMoves.length, (multiRead) => {
+                for (let i = 0; i < scouts.length; ++i) {
+                    const scout = scouts[i];
+                    const scoutReport = [];
+                    for (let j = 1; j < 15; ++j) {
+                        scoutReport.push(multiRead[i * 15 + j]);
+                    }
 
-        // if (!scout.shouldMove) {
-        //     service.multilineResponseQuery(`LOOK_AROUND ${scout.id}`, 14, (response) => {
-        //         scout.shouldMove = true;
-
-        //         theGame.chartScoutData(scout, response);
-
-        //         logger.debug(response);
-
-        //         service.nextTurn();
-        //     });
-        //     return;
-        // }
-
-        // if (scout.shouldMove) {
-        //     service.command({serverCommand: 'MOVE', args: [`${scout.id}`]}, () => {
-        //         scout.shouldMove = false;
-
-        //         service.nextTurn();
-        //     });
-
-        //     return;
-        // }
+                    logger.debug({scoutReport, scout});
+                    theGame.chartScoutData(scout, scoutReport);
+                }
+                service.simpleNextTurn();
+            });
+        });
+    });
     });
     });
     });
@@ -200,14 +149,18 @@ const gameLoop = (service) => {
     });
 };
 
-const emitter = dl24client(config, gameLoop);
+const emitter = dl24client(config, gameLoop, debugState);
 emitter.on('error', error => console.log('ERROR', error));
 emitter.on('error', error => logger.error(error));
 emitter.on('waiting', millisecondsTillNextTurn => {
     logger.info('waiting', {millisecondsTillNextTurn});
     console.log('waiting till next turn', millisecondsTillNextTurn);
 });
-emitter.on('receivedFromServer', (data, command) => logger.info('receivedFromServer', {received: data, after: command}));
+emitter.on('receivedFromServer', (data, command) => {
+    logger.info('receivedFromServer', {received: data, after: command});
+    console.log(`<== ${data}`);
+});
 emitter.on('sentToServer', command => logger.info('sentToServer', command));
+emitter.on('sentToServer', command => console.log(`==> ${command}`));
 emitter.on('rawData', data => logger.info('raw data from server', {data: data}));
 emitter.on('debug', data => logger.debug(data));
