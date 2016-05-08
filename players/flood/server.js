@@ -65,7 +65,7 @@ const gameLoop = (service) => {
 
         const shouldTakeBags = worker => {
             const tile = theGame.getTile(worker);
-            return !worker.bags && tile.tileType === tileTypes.magazine;
+            return !worker.bags && tile.tileType === tileTypes.magazine && tile.bags;
         };
 
         const shouldLeaveBags = worker => {
