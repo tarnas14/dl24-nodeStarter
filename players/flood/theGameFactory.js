@@ -421,7 +421,7 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                     const tileType = yLine[x - 1];
                     const tile = {
                         x: scout.x + x - 4,
-                        y: scout.y + y - 4
+                        y: scout.y + y - 7 - 4
                     };
 
                     switch (tileType) {
