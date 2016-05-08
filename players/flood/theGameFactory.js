@@ -22,6 +22,8 @@ const average = elements => {
 
 const getRandomInt = (min, max) => (Math.floor(Math.random() * (max - min)) + min);
 
+const floodForecastHistory = [];
+
 const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
     const getInitialState = () => {
         return {
@@ -35,7 +37,7 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             stackBorderCoordinates: null,
             scoutId: '',
             floodStatus: {},
-            forecast: {},
+            forecast: null,
             workers: [],
             magazines: [],
             objects: [],
@@ -175,11 +177,49 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
     const borderWithNotEnoughBags = stackBorder => {
         const sandBags = state.map[stackBorder.y][stackBorder.x].sandBags || 0;
 
-        const fenceHeight = average(state.forecast.map(f => f.hMax));
+        const fenceHeight = Math.floor(1.5 * ((state.forecast && average(state.forecast.map(f => f.hMax))) || [7]));
 
-        console.log(`is ${sandBags} lower than ${fenceHeight} ==> ${sandBags < fenceHeight}`);
+        //console.log(`is ${sandBags} lower than ${fenceHeight} ==> ${sandBags < fenceHeight}`);
 
         return sandBags < fenceHeight;
+    };
+
+    const getBorders = object => {
+        const borders = [];
+        const maxY = object.size.height + 2;
+        const maxX = object.size.width + 2;
+        for (let y = 0; y < maxY; y++) {
+            for (let x = 0; x < maxX; x++) {
+                const edge =
+                    ((y === 0) && (x === 0)) ||
+                    ((y === 0) && (x === (maxX - 1))) ||
+                    ((y === (maxY - 1)) && (x === 0)) ||
+                    ((y === (maxY - 1)) && (x === (maxX - 1)));
+
+                if (!edge && !isObject(object.coordinates.x - 1 + x, object.coordinates.y - 1 + y)) {
+                    borders.push({
+                        x: object.coordinates.x - 1 + x,
+                        y: object.coordinates.y - 1 + y
+                    });
+                }
+            }
+        }
+
+        return borders;
+    };
+
+    const notSurrounded = object => {
+        const borders = getBorders(object);
+
+        return borders.find(border => borderWithNotEnoughBags(border));
+    };
+
+    const setNewStackBorderCoordinates = () => {
+        const stack = closestObject(state.magazines[0].coordinates, state.objects.filter(object => notSurrounded(object)));
+        const stackBorderCoordinates = getBorders(stack);
+
+        state.stack = stack;
+        state.stackBorderCoordinates = stackBorderCoordinates;
     };
 
     let lastWorldDescriptor = '';
@@ -258,29 +298,7 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             });
 
             if (!state.stackBorderCoordinates) {
-                const stack = closestObject(state.magazines[0].coordinates, state.objects);
-                const stackBorderCoordinates = [];
-                const maxY = stack.size.height + 2;
-                const maxX = stack.size.width + 2;
-                for (let y = 0; y < maxY; y++) {
-                    for (let x = 0; x < maxX; x++) {
-                        const edge =
-                            ((y === 0) && (x === 0)) ||
-                            ((y === 0) && (x === (maxX - 1))) ||
-                            ((y === (maxY - 1)) && (x === 0)) ||
-                            ((y === (maxY - 1)) && (x === (maxX - 1)));
-
-                        if (!edge && !isObject(stack.coordinates.x - 1 + x, stack.coordinates.y - 1 + y)) {
-                            stackBorderCoordinates.push({
-                                x: stack.coordinates.x - 1 + x,
-                                y: stack.coordinates.y - 1 + y
-                            });
-                        }
-                    }
-                }
-
-                state.stack = stack;
-                state.stackBorderCoordinates = stackBorderCoordinates;
+                setNewStackBorderCoordinates();
             }
 
             updateStateLog();
@@ -332,12 +350,14 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             return state.map[y][x];
         },
         vectorToStack (pointFrom) {
-            const nextBorderWithoutSandbags = state.stackBorderCoordinates.find(stackBorder => borderWithNotEnoughBags(stackBorder)) || state.stackBorderCoordinates[0];
+            const getNext = () => state.stackBorderCoordinates.find(stackBorder => borderWithNotEnoughBags(stackBorder));
+            let nextBorderWithoutSandbags = getNext();
 
             if (!nextBorderWithoutSandbags) {
                 console.log('whole border filled?', state.stackBorderCoordinates);
+                setNewStackBorderCoordinates();
 
-                return {x: 0, y: 0};
+                nextBorderWithoutSandbags = getNext();
             }
 
             console.log('GOING TO ==> ', nextBorderWithoutSandbags.x, nextBorderWithoutSandbags.y);
@@ -352,14 +372,14 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
                 borderCoordinates.x === x &&
                 borderCoordinates.y === y &&
                 borderWithNotEnoughBags(borderCoordinates));
-            console.log(x, y, state.stackBorderCoordinates);
+            //console.log(x, y, state.stackBorderCoordinates);
 
             return result;
         },
         chartScoutData (scout, scoutResponse) {
             const sandBagsToInt = (sandbagString, tile) => {
                 const showResult = result => {
-                    console.log(`${sandbagString} => ${result}`);
+                    //console.log(`${sandbagString} => ${result}`);
                 };
 
                 if (sandbagString.toLowerCase() === 'z') {
@@ -472,7 +492,14 @@ const theGameFactory = (gridder, logger, stateUpdater, debugState) => {
             updateStateLog();
         },
         isFlooding () {
-            return state.floodStatus.height;
+            const result = state.floodStatus.height;
+
+            // if (result) {
+            //     floodForecastHistory.push(state.forecast);
+            //     debugState.newState(floodForecastHistory);
+            // }
+
+            return result;
         },
         vectorToClosestObject (pointFrom) {
             const startingPoint = pointFrom || state.magazines[0].coordinates;

@@ -39,6 +39,7 @@ const gameLoop = (service) => {
         }
 
         if (theGame.isFlooding()) {
+            console.log('FLOOD');
             const writes = [];
             theGame.getWorkers().forEach(fleeingWorker => {
                 const tile = theGame.getTile(fleeingWorker);
@@ -69,17 +70,17 @@ const gameLoop = (service) => {
         };
 
         const shouldLeaveBags = worker => {
-            console.log('SHOULD LEAVE\n\n\n\n');
+            // console.log('SHOULD LEAVE\n\n\n\n');
             const tile = theGame.getTile(worker);
             if (!tile) {
-                console.log('FALSE because no tile wtf');
-                console.log('\n\n\n\n');
+                // console.log('FALSE because no tile wtf');
+                // console.log('\n\n\n\n');
                 return false;
             }
 
             const isStack = theGame.isStack(tile);
-            console.log(worker.bags, isStack);
-            console.log('\n\n\n\n');
+            // console.log(worker.bags, isStack);
+            // console.log('\n\n\n\n');
 
             return worker.bags && isStack;
         };
@@ -156,7 +157,7 @@ const gameLoop = (service) => {
     });
 };
 
-const emitter = dl24client(config, gameLoop, debugState);
+const emitter = dl24client(config, gameLoop);
 emitter.on('error', error => console.log('ERROR', error));
 emitter.on('error', error => logger.error(error));
 emitter.on('waiting', millisecondsTillNextTurn => {

@@ -53,7 +53,7 @@ const lockerFactory = () => {
     };
 };
 
-const dl24client = ({port, host, username, password}, gameLoop, debugState) => {
+const dl24client = ({port, host, username, password}, gameLoop) => {
     const eventEmitter = new EventEmitter();
     const connection = net.createConnection(port, host);
     connection.setEncoding('utf8');
