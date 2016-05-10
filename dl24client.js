@@ -2,6 +2,36 @@
 const net = require('net');
 const EventEmitter = require('events').EventEmitter;
 
+const lockedArrayFactory = () => {
+    let array = [];
+    let locked = false;
+
+    return {
+        whenUnlocked (callback) {
+            if (!locked) {
+                locked = true;
+                const newArray = callback(() => array);
+                if (newArray) {
+                    array = newArray;
+                }
+                locked = false;
+
+                return;
+            }
+
+            const interval = setInterval(() => {
+                this.whenUnlocked(getUnlockedArray => {
+                    clearInterval(interval);
+                    callback(getUnlockedArray);
+                });
+            }, 100);
+        },
+        reset () {
+            this.whenUnlocked(() => []);
+        }
+    };
+};
+
 String.prototype.withTerminator = function withTerminator () {
     return `${this.toString()}\n`;
 };
@@ -10,9 +40,16 @@ String.prototype.sanitized = function sanitized () {
     return this.toString().trim().replace('\r', '');
 };
 
+const emitDebug = (emitter, debugData, description) => {
+    emitter.emit('debug', {
+        description,
+        debugData
+    });
+};
+
 const getMillisecondsTillNextTurnFromServerResponse = (waitingResponse) => {
     const waitingRegex = /^waiting (.+)$/;
-    console.log('WAITING ====> ',waitingResponse.toLowerCase());
+    console.log('WAITING ====> ', waitingResponse.toLowerCase());
     const [, timeTillNextTurnInSeconds] = waitingRegex.exec(waitingResponse.toLowerCase());
 
     return parseFloat(timeTillNextTurnInSeconds) * 1000;
@@ -37,135 +74,117 @@ const getErrorFromServerResponse = (errorResponse) => {
 
 let turn = 1;
 
-const lockerFactory = () => {
-    let locked = false;
-
-    return {
-        whenUnlocked (callback) {
-            if (!locked) {
-                locked = true;
-                callback();
-                locked = false;
-
-                return;
-            }
-
-            const interval = setInterval(() => {
-                this.whenUnlocked(() => {
-                    clearInterval(interval);
-                    callback();
-                });
-            }, 100);
-        }
-    };
-};
-
 const dl24client = ({port, host, username, password}, gameLoop) => {
+    const lockedArray = lockedArrayFactory();
     const eventEmitter = new EventEmitter();
     const connection = net.createConnection(port, host);
     connection.setEncoding('utf8');
 
-    let something = [];
-    const lock = lockerFactory();
-    connection.on('data', (data) => {
-        lock.whenUnlocked(() => {
-            const lines = data.sanitized().split('\n').map((line) => line.sanitized()).filter(line => line);
-            something = [...something, ...lines];
-
-            eventEmitter.emit('receivedFromServer', lines);
-            eventEmitter.emit('rawData', {rawData: data, sanitized: data.sanitized()});
-        });
-    });
-
-    const emitDebug = (debugData, description) => {
-        eventEmitter.emit('debug', {
-            description,
-            debugData
-        });
-    };
-
     const startGameLoop = (service) => {
         console.log(`turn ${turn++}`);
-        something = [];
+        lockedArray.reset();
         gameLoop(service);
     };
 
-    const service = {
-        multiWrite (queries, callback) {
-            const query = queries.join('\n').withTerminator();
-            connection.write(query, () => {
-                eventEmitter.emit('sentToServer', query);
-                callback();
+    connection.on('data', (data) => {
+        lockedArray.whenUnlocked(getSafeArray => {
+            const lines = data.sanitized().split('\n').map((line) => line.sanitized()).filter(line => line);
+
+            eventEmitter.emit('rawData', data);
+
+            return [...getSafeArray(), ...lines];
+        });
+    });
+
+    const promisingService = {
+        multiWrite (multipleData) {
+            return new Promise((resolve) => {
+                const data = multipleData.join('\n').withTerminator();
+                connection.write(data, () => {
+                    eventEmitter.emit('sentToServer', data);
+                    resolve();
+                });
             });
         },
-        fancyRead (linesAfterOk, callback) {
-            this.read(linesAfterOk + 1, (lines) => {
-                callback(lines.slice(1));
+        write (data) {
+            return new Promise((resolve) => {
+                connection.write(data.withTerminator(), () => {
+                    eventEmitter.emit('sentToServer', data);
+                    resolve();
+                });
             });
         },
-        fancyMultipleRead (callback) {
-            this.fancyRead(1, (countString) => {
-                this.read(parseInt(countString, 10), callback);
-            });
-        },
-        write (query, callback) {
-            connection.write(query.withTerminator(), () => {
-                eventEmitter.emit('sentToServer', query);
-                callback();
-            });
-        },
-        read (lines, callback) {
-            lock.whenUnlocked(() => {
-                const doRead = () => {
-                    const readLines = [];
-                    for (let i = 0; i < lines; ++i) {
-                        readLines.push(something.shift());
-                    }
+        read (lines) {
+            return new Promise((resolve, reject) => {
+                lockedArray.whenUnlocked(getSafeArray => {
+                    const doRead = () => {
+                        const readLines = [];
+                        for (let i = 0; i < lines; ++i) {
+                            readLines.push(getSafeArray().shift());
+                        }
 
-                    const error = readLines.find(readLine => readLine.toLowerCase().startsWith('failed'));
-                    if (error) {
-                        eventEmitter.emit('error', getErrorFromServerResponse(error));
-                        startGameLoop(service);
+                        const error = readLines.find(readLine => readLine.toLowerCase().startsWith('failed'));
+                        if (error) {
+                            eventEmitter.emit('error', getErrorFromServerResponse(error));
+                            reject(promisingService);
 
-                        return;
-                    }
+                            return;
+                        }
 
-                    callback(readLines);
-                };
+                        eventEmitter.emit('receivedFromServer', readLines);
+                        resolve(readLines);
+                    };
 
-                if (lines <= something.length) {
-                    doRead();
-
-                    return;
-                }
-
-                const interval = setInterval(() => {
-                    if (lines <= something.length) {
-                        clearInterval(interval);
+                    if (lines <= getSafeArray().length) {
                         doRead();
 
                         return;
                     }
-                }, 100);
+
+                    const interval = setInterval(() => {
+                        if (lines <= getSafeArray().length) {
+                            clearInterval(interval);
+                            doRead();
+
+                            return;
+                        }
+                    }, 100);
+                });
             });
         },
-        simpleNextTurn () {
-            this.write('WAIT', () => {
-                this.fancyRead(1, ([data]) => {
-                    if (!data.toLowerCase().startsWith('waiting')) {
-                        eventEmitter.emit('error', `expected waiting response, got '${data}'`);
+        fancyRead (linesAfterOk) {
+            return new Promise((resolve, reject) => {
+                this.read(linesAfterOk + 1)
+                .then(resolve)
+                .catch(reject);
+            });
+        },
+        fancyMultipleRead () {
+            return new Promise((resolve, reject) => {
+                this.fancyRead(1)
+                .then(expectedResultCount => this.read(parseInt(expectedResultCount, 10)))
+                .then(resolve)
+                .catch(reject);
+            });
+        },
+        nextTurn () {
+            this.write('WAIT')
+            .then(() => this.read(2))
+            .then(([, data]) => {
+                if (!data.toLowerCase().startsWith('waiting')) {
+                    return Promise.reject(`expected waiting response, got '${data}'`);
+                }
 
-                        startGameLoop(service);
-                        return;
-                    }
+                const millisecondsTillNextTurn = getMillisecondsTillNextTurnFromServerResponse(data);
+                eventEmitter.emit('waiting', millisecondsTillNextTurn);
 
-                    const millisecondsTillNextTurn = getMillisecondsTillNextTurnFromServerResponse(data);
-                    eventEmitter.emit('waiting', millisecondsTillNextTurn);
-
-                    this.read(1, () => {
-                        startGameLoop(service);
-                    });
-                });
+                return this.read(1);
+            })
+            .then(() => {
+                startGameLoop(promisingService);
+            })
+            .catch(rejectReason => {
+                eventEmitter.emit('error', rejectReason);
             });
         }
     };
@@ -185,8 +204,8 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
 
         if (data.sanitized().toLowerCase() === 'ok') {
             connection.removeListener('data', loginHandler);
-            something = [];
-            startGameLoop(service);
+            lockedArray.reset();
+            startGameLoop(promisingService);
         }
     });
 

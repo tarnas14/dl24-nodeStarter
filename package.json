@@ -4,9 +4,8 @@
   "description": "client and utilities for dl24 lite, an internal hackathon organized by Future Processing, written in node because hey why not",
   "main": "dl24client.js",
   "scripts": {
-    "example": "node --harmony_destructuring players/example/example",
-    "seawars": "node --harmony_destructuring players/seaWars/server",
-    "flood": "node --harmony_destructuring players/flood/server",
+    "example": "node players/example/example",
+    "flood": "node players/promiseFlood/floodServer",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
