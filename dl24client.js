@@ -155,7 +155,7 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
         fancyRead (linesAfterOk) {
             return new Promise((resolve, reject) => {
                 this.read(linesAfterOk + 1)
-                .then(resolve)
+                .then(results => resolve(results.slice(1)))
                 .catch(reject);
             });
         },
