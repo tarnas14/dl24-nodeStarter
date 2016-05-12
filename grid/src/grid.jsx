@@ -41,7 +41,6 @@ const Grid = React.createClass({
                         <div
                             className="grid-row"
                             key={`row${index}`}
-                            style={{height: side, lineHeight: side, fontSize: side}}
                         >
                             {row.map((cell) => (
                                 <ObservingCell cellDefinition={cell} cellStyles={styles} gridChangeStream={data.gridChangeStream} key={`col${cell.x}x${cell.y}`} />

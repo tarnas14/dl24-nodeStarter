@@ -6,7 +6,7 @@ const ObservingCell = React.createClass({
     propTypes: {
         cellDefinition: React.PropTypes.object.isRequired,
         cellStyles: React.PropTypes.object.isRequired,
-        gridChangeStream: React.PropTypes.object.isRequired
+        gridChangeStream: React.PropTypes.object.isRequired,
     },
 
     getInitialState () {
@@ -14,7 +14,7 @@ const ObservingCell = React.createClass({
 
         return {
             cell,
-            cellId: `cell${cell.x}x${cell.y}`
+            cellId: `cell${cell.x}x${cell.y}`,
         };
     },
 
@@ -42,7 +42,7 @@ const ObservingCell = React.createClass({
             return;
         }
         this.setState({
-            cell
+            cell,
         });
     },
 
@@ -50,8 +50,8 @@ const ObservingCell = React.createClass({
         this.setState({
             cell: {
                 ...this.state.cell,
-                color: this.props.cellStyles.background
-            }
+                color: this.props.cellStyles.background,
+            },
         });
     },
 
@@ -65,20 +65,15 @@ const ObservingCell = React.createClass({
         const side = `${cellStyles.side}px`;
 
         return (
-            <div
+            <span
                 data-point={this.state.cellId}
                 onClick={this.showCell}
                 style={{
-                    backgroundColor: cell.color || cellStyles.background,
-                    display: 'inline-block',
-                    width: side,
-                    height: '100%',
-                    borderRight: '1px solid #eaeaea',
-                    borderBottom: '1px solid #eaeaea'
+                    fontFamily: 'Consolas',
                 }}
-            ></div>
+            >{cell.type}</span>
         );
-    }
+    },
 });
 
 export default ObservingCell;

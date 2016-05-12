@@ -1,4 +1,6 @@
 'use strict';
+require('./utils/tcpStringUtils')();
+
 const net = require('net');
 const EventEmitter = require('events').EventEmitter;
 
@@ -28,28 +30,19 @@ const lockedArrayFactory = () => {
         },
         reset () {
             this.whenUnlocked(() => []);
-        }
+        },
     };
-};
-
-String.prototype.withTerminator = function withTerminator () {
-    return `${this.toString()}\n`;
-};
-
-String.prototype.sanitized = function sanitized () {
-    return this.toString().trim().replace('\r', '');
 };
 
 const emitDebug = (emitter, debugData, description) => {
     emitter.emit('debug', {
         description,
-        debugData
+        debugData,
     });
 };
 
 const getMillisecondsTillNextTurnFromServerResponse = (waitingResponse) => {
     const waitingRegex = /^waiting (.+)$/;
-    console.log('WAITING ====> ', waitingResponse.toLowerCase());
     const [, timeTillNextTurnInSeconds] = waitingRegex.exec(waitingResponse.toLowerCase());
 
     return parseFloat(timeTillNextTurnInSeconds) * 1000;
@@ -62,12 +55,12 @@ const getErrorFromServerResponse = (errorResponse) => {
 
         return {
             code,
-            message
+            message,
         };
     } catch (error) {
         return {
             code: 'error with regex lol',
-            mesage: error.toString()
+            mesage: error.toString(),
         };
     }
 };
@@ -101,7 +94,7 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
             return new Promise((resolve) => {
                 const data = multipleData.join('\n').withTerminator();
                 connection.write(data, () => {
-                    eventEmitter.emit('sentToServer', data);
+                    eventEmitter.emit('sentToServer', multipleData);
                     resolve();
                 });
             });
@@ -131,7 +124,7 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
                             return;
                         }
 
-                        eventEmitter.emit('receivedFromServer', readLines);
+                        eventEmitter.emit('readFromServer', readLines);
                         resolve(readLines);
                     };
 
@@ -186,7 +179,7 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
             .catch(rejectReason => {
                 eventEmitter.emit('error', rejectReason);
             });
-        }
+        },
     };
 
     connection.on('data', function loginHandler (data) {
