@@ -89,6 +89,11 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
         });
     });
 
+    const throwError = errorObject => {
+        eventEmitter.emit('error', errorObject);
+        throw errorObject;
+    };
+
     const promisingService = {
         multiWrite (multipleData) {
             return new Promise((resolve) => {
@@ -108,7 +113,7 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
             });
         },
         read (lines) {
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 lockedArray.whenUnlocked(getSafeArray => {
                     const doRead = () => {
                         const readLines = [];
@@ -118,10 +123,8 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
 
                         const error = readLines.find(readLine => readLine.toLowerCase().startsWith('failed'));
                         if (error) {
-                            eventEmitter.emit('error', getErrorFromServerResponse(error));
-                            reject(promisingService);
-
-                            return;
+                            const errorObject = getErrorFromServerResponse(error);
+                            throwError(errorObject);
                         }
 
                         eventEmitter.emit('readFromServer', readLines);
@@ -146,18 +149,16 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
             });
         },
         fancyRead (linesAfterOk) {
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 this.read(linesAfterOk + 1)
-                .then(results => resolve(results.slice(1)))
-                .catch(reject);
+                .then(results => resolve(results.slice(1)));
             });
         },
         fancyMultipleRead () {
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 this.fancyRead(1)
                 .then(expectedResultCount => this.read(parseInt(expectedResultCount, 10)))
-                .then(resolve)
-                .catch(reject);
+                .then(resolve);
             });
         },
         nextTurn () {
@@ -165,7 +166,7 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
             .then(() => this.read(2))
             .then(([, data]) => {
                 if (!data.toLowerCase().startsWith('waiting')) {
-                    return Promise.reject(`expected waiting response, got '${data}'`);
+                    throwError({code: 'WAITING', message: `expected waiting response, got '${data}'`});
                 }
 
                 const millisecondsTillNextTurn = getMillisecondsTillNextTurnFromServerResponse(data);
@@ -175,9 +176,6 @@ const dl24client = ({port, host, username, password}, gameLoop) => {
             })
             .then(() => {
                 startGameLoop(promisingService);
-            })
-            .catch(rejectReason => {
-                eventEmitter.emit('error', rejectReason);
             });
         },
     };
