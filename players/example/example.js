@@ -28,7 +28,7 @@ gridder.newGrid({map, styles: {background: 'green', side: 11}}, () => {
         gridder.updateCell({
             x: getRandomInt(0, 41),
             y: getRandomInt(0, 41),
-            color: 'red'
+            color: 'red',
         });
     }, 100);
 });
@@ -40,8 +40,8 @@ const gameLoop = (service) => {
 };
 
 const emitter = dl24client(config, gameLoop);
-emitter.on('error', (error) => logger.error(error));
-emitter.on('waiting', (millisecondsTillNextTurn) => logger.info('waiting', {millisecondsTillNextTurn}));
-emitter.on('receivedFromServer', (data) => logger.info('receivedFromServer', data));
-emitter.on('sentToServer', (command) => logger.info('sentToServer', command));
-emitter.on('debug', data => logger.debug(data));
+emitter.on('error', error => console.log(error));
+// emitter.on('waiting', millisecondsTillNextTurn => console.log('waiting', millisecondsTillNextTurn));
+emitter.on('readFromServer', data => console.log('S=>C:', data));
+emitter.on('sentToServer', command => console.log('S<=C', command));
+emitter.on('debug', data => console.log('DEBUG:', data));
