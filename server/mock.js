@@ -1,19 +1,35 @@
 'use strict';
 const net = require('net');
 
-const config = require('./config');
+const EventEmitter = require('events').EventEmitter;
+
+const getTimeMaster = (turnTime) => {
+    let turn = 0;
+    let turnEnd = null;
+
+    const timeMaster = {
+        start () {
+            const nextTurn = () => {
+                turnEnd = (new Date()).getTime() + turnTime * 1000;
+                this.emit('nextTurn', ++turn);
+            };
+
+            nextTurn();
+            setInterval(() => {
+                nextTurn();
+            }, turnTime * 1000);
+        },
+        getTimeTillNextTurn () {
+            return turnEnd - (new Date()).getTime();
+        },
+    };
+
+    return Object.assign(Object.create(EventEmitter.prototype), timeMaster);
+};
+
 require('../utils/tcpStringUtils')();
 
 const server = net.createServer();
-
-const state = {
-    startedCommunication: false,
-    waitingForLogin: true,
-    loggedIn: false,
-    turn: 0,
-    turnEnd: (new Date()).getTime() + config.turnTime * 1000,
-    waiting: false,
-};
 
 const write = (socket, data, callback) => {
     socket.write(data.withTerminator(), () => {
@@ -25,14 +41,32 @@ const write = (socket, data, callback) => {
     });
 };
 
-setInterval(() => {
-    state.turn += 1;
-    state.turnEnd = (new Date()).getTime() + config.turnTime * 1000;
-    state.waiting = false;
-}, config.turnTime * 1000);
+const serverSettings = {
+    port: 3033,
+    login: 'zenek',
+    pass: 'gitara',
+    turnTime: 5,
+};
+
+const state = {
+    startedCommunication: false,
+    waitingForLogin: true,
+    loggedIn: false,
+    waiting: false,
+};
+
+const timeMaster = getTimeMaster(serverSettings.turnTime);
+timeMaster.on('nextTurn', (turnNumber) => {
+    console.log(`Turn ${turnNumber}`);
+});
+timeMaster.start();
 
 server.on('connection', socket => {
     console.log('new connection!');
+
+    timeMaster.on('nextTurn', () => {
+        state.waiting = false;
+    });
 
     socket.setEncoding('utf8');
 
@@ -46,7 +80,7 @@ server.on('connection', socket => {
         if (state.waitingForLogin) {
             const login = data.sanitized();
 
-            if (login === config.login) {
+            if (login === serverSettings.login) {
                 write(socket, 'PASS');
                 state.waitingForLogin = false;
 
@@ -63,7 +97,7 @@ server.on('connection', socket => {
         if (!state.loggedIn) {
             const pass = data.sanitized();
 
-            if (pass === config.pass) {
+            if (pass === serverSettings.pass) {
                 write(socket, 'OK');
                 state.loggedIn = true;
 
@@ -87,13 +121,11 @@ server.on('connection', socket => {
 
         const responses = commands.reduce((responseArray, command) => {
             if (command[0] === 'WAIT') {
-                const tillNextTurn = state.turnEnd - (new Date()).getTime();
                 state.waiting = true;
+                const tillNextTurn = timeMaster.getTimeTillNextTurn();
 
                 setTimeout(() => {
-                    write(socket, 'OK', () => {
-                        state.waiting = false;
-                    });
+                    write(socket, 'OK');
                 }, tillNextTurn);
 
                 return [...responseArray, 'OK', `WAITING ${tillNextTurn / 1000}`];
@@ -111,11 +143,11 @@ server.on('connection', socket => {
 });
 
 server.on('listening', () => {
-    console.log(`Server is listening on ${config.port}`);
+    console.log(`Server is listening on ${serverSettings.port}`);
 });
 
 server.on('error', error => {
     console.log(`ERROR: ${error.message}`);
 });
 
-server.listen(config.port);
+server.listen(serverSettings.port);
