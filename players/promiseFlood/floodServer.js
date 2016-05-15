@@ -9,6 +9,8 @@ const tileTypes = require('./tileTypes');
 const _ = require('lodash');
 const jkstra = require('jkstra');
 
+const minimumWallHeight = 5;
+
 const vectors = {
     distance (start, end) {
         console.log('s, e', start, end);
@@ -84,6 +86,30 @@ store.onEachStateChange(newState => {
             map: newState.map,
         });
     }
+
+    const forEachCell = (object, callback) => {
+        _.range(object.size.width).forEach(x => _.range(object.size.height).forEach(y => {
+            callback({
+                x: object.x + x,
+                y: object.y + y,
+                type: object.type,
+            });
+        }));
+    };
+
+    [...newState.objects, ...newState.magazines].forEach(object => forEachCell(object, gridder.updateCell));
+
+    newState.plan.forEach(planElement => {
+        gridder.updateCell({
+            x: planElement.x,
+            y: planElement.y,
+            type: tileTypes.dam,
+        });
+    });
+
+    newState.workers.forEach(worker => gridder.updateCell({x: worker.x, y: worker.y, type: worker.status}));
+
+    console.log(newState.workers);
 });
 
 const theGame = theGameFactory(store);
@@ -91,9 +117,8 @@ const theGame = theGameFactory(store);
 const tileOnMap = (tile, dimensions) => tile.x >= 0 && tile.x < dimensions.width && tile.y >= 0 && tile.y < dimensions.height;
 
 const getPath = (start, destination, state, possibleVectors, neighbourFilter) => {
-    console.log(start, destination, possibleVectors);
     if (start.x === destination.x && start.y === destination.y) {
-        return [start];
+        return [];
     }
 
     const graph = new jkstra.Graph();
@@ -121,38 +146,18 @@ const getPath = (start, destination, state, possibleVectors, neighbourFilter) =>
 
     const dijkstra = new jkstra.algos.Dijkstra(graph);
 
-    const path = dijkstra.shortestPath(vertices[vertexIndex(start)], vertices[vertexIndex(destination)]).map(a => a.to.data);
-
-    const pathSteps = [start, ...path].reduce((steps, step, currentIndex, array) => {
-        if (currentIndex === 0) {
-            return steps;
-        }
-
-        return [...steps, vectors.normalize(vectors.getVector(array[currentIndex - 1], step))];
-    }, []);
-
-    return pathSteps;
+    return dijkstra.shortestPath(vertices[vertexIndex(start)], vertices[vertexIndex(destination)]).map(a => a.to.data);
 };
 
 const getPathAroundObjects = (start, destination, state) => {
     const moveVectors = [{x: 1, y: 0}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 0, y: -1}];
 
-    const isNeighbourOnMap = neighbour => {
+    const isNeighbourNotAnObject = neighbour => {
         return tileOnMap(neighbour, state.dimensions) && notObject(state.map[neighbour.y][neighbour.x]);
     };
 
-    return getPath(start, destination, state, moveVectors, isNeighbourOnMap);
+    return getPath(start, destination, state, moveVectors, isNeighbourNotAnObject);
 };
-
-const getDirectPath = (start, destination, state) => {
-    const moveVectors = [{x: 1, y: 0}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 0, y: -1}, {x: 1, y: 1}, {x: -1, y: -1}, {x: -1, y: 1}, {x: 1, y: -1}];
-
-    const isNeighbourOnMap = neighbour => tileOnMap(neighbour, state.dimensions);
-
-    return getPath(start, destination, state, moveVectors, isNeighbourOnMap);
-};
-
-const differentTile = (a, b) => a.x !== b.x || a.y !== b.y;
 
 const gameLoop = (service) => {
     service.multiWrite(['DESCRIBE_WORLD', 'FLOOD_STATUS', 'FORECAST', 'LIST_OBJECTS', 'LIST_WORKERS'])
@@ -179,138 +184,38 @@ const gameLoop = (service) => {
 
             store.setState(oldState => {
                 return Object.assign({}, oldState, {
-                    plan: [...border, ...pathToObject],
+                    plan: [...border.map(borderTile => store.getState().map[borderTile.y][borderTile.x]), ...pathToObject.map(pathTile => store.getState().map[pathTile.y][pathTile.x])],
                 });
             });
         }
     })
     .then(() => {
-        return store.getState().workers.reduce((promise, worker) => {
-            return promise.then(() => {
+        const isOnMagazine = ({x, y}) => store.getState().map[y][x].type === tileTypes.magazine;
+        const onDropPoint = ({x, y}) => store.getState().plan.find(planTile => planTile.x === x && planTile.y === y && planTile.bags < minimumWallHeight);
 
-                const elementsInPlanBelowThreshold = store.getState().plan.filter(element => store.getState().map[element.y][element.x].bags < 13);
+        const shouldTakeBags = store.getState().workers.filter(worker => !worker.bags && isOnMagazine(worker));
 
-                if (worker.bags && _.find(elementsInPlanBelowThreshold, {x: worker.x, y: worker.y})) {
-                    service.write(`LEAVE ${worker.id} 1`)
-                        .then(() => service.read(2))
-                        .then((data) => {
-                            if (data[0] === 'OK') {
-                                this.getState().map[worker.y][worker.x].bags += parseInt(data[1], 10);
-                                worker.bags -= 1;
-                            }
-                        });
-                }
+        const onDropPointWithBags = store.getState().workers.filter(worker => worker.bags && onDropPoint(worker));
 
-                return Promise.resolve();
+        const shouldGoForBags = [...onDropPointWithBags, ...store.getState().workers.filter(worker => !worker.bags && !isOnMagazine(worker) && !onDropPointWithBags.indexOf(worker))];
 
-                // if (!worker.bags && store.getState().map[worker.y][worker.x].type === tileTypes.magazine) {
-                //     const closestBagPlace = findClosest(worker, store.getState().plan);
+        const goingWithBagsToDropPoint = [...shouldTakeBags, ...store.getState().workers.filter(worker => worker.bags && !onDropPoint(worker) && !shouldTakeBags.indexOf(worker))];
 
-                //     let nextStepWithBags = {x: 0, y: 0};
-                //     if (closestBagPlace.distance !== 1) {
-                //         nextStepWithBags = vectors.normalize(vectors.getVector(worker, getPathAroundObjects(worker, closestBagPlace, store.getState())[0]));
-                //     } else {
-                //         nextStepWithBags = vectors.normalize(vectors.getVector(worker, closestBagPlace));
-                //     }
+        console.log('plan: ', store.getState().plan);
+        console.log('workers: ', store.getState().workers);
+        console.log('taking the bags: ', shouldTakeBags);
+        console.log('dropping the bags: ', onDropPointWithBags);
+        console.log('going for bags: ', shouldGoForBags);
+        console.log('going to drop bags: ', goingWithBagsToDropPoint);
 
-                //     console.log('take', worker, nextStepWithBags);
-                //     return service.write(`TAKE ${worker.id} 1`).then(() => service.read(2)).then(service.write(`MOVE ${worker.id} ${nextStepWithBags.x} ${nextStepWithBags.y}`)).then(() => service.read(1));
-                // }
-
-                // const magazine = store.getState().magazines[0];
-
-                // if (!worker.bags) {
-                //     let nextStepTowardsMagazine = {x: 0, y: 0};
-                //     if (nextStepTowardsMagazine.distance !== 1) {
-                //         nextStepTowardsMagazine = vectors.normalize(vectors.getVector(worker, getPathAroundObjects(worker, magazine, store.getState())[0]));
-                //     } else {
-                //         nextStepTowardsMagazine = vectors.normalize(vectors.getVector(worker, magazine));
-                //     }
-
-                //     console.log('move to magazine', worker, nextStepTowardsMagazine);
-                //     return service.write(`MOVE ${worker.id} ${nextStepTowardsMagazine.x} ${nextStepTowardsMagazine.y}`).then(() => service.read(1));
-                // }
-
-                // const elementInPlanBelowThreshold = store.getState().plan.filter(element => store.getState().map[element.y][element.x].bags < 13);
-
-                // if (_.find(elementInPlanBelowThreshold, worker)) {
-                //     let nextStepTowardsMagazine = {x: 0, y: 0};
-                //     if (nextStepTowardsMagazine.distance !== 1) {
-                //         nextStepTowardsMagazine = vectors.normalize(vectors.getVector(worker, getPathAroundObjects(worker, magazine, store.getState())[0]));
-                //     } else {
-                //         nextStepTowardsMagazine = vectors.normalize(vectors.getVector(worker, magazine));
-                //     }
-
-                //     console.log('leave and go towards magazine', worker, nextStepTowardsMagazine);
-
-                //     return service.write(`LEAVE ${worker.id} 1`)
-                //         .then(() => service.read(2))
-                //         .then((data) => {
-                //             if (data[0] === 'OK') {
-                //                 this.getState().map[worker.y][worker.x].bags += parseInt(data[1], 10);
-                //             }
-                //         })
-                //         .then(service.write(`MOVE ${worker.id} ${nextStepTowardsMagazine.x} ${nextStepTowardsMagazine.y}`))
-                //         .then(() => service.read(1));
-                // }
-
-                // const closestBagPlace = findClosest(worker, store.getState().plan);
-
-                // let nextStepWithBags = {x: 0, y: 0};
-                // if (closestBagPlace.distance !== 1) {
-                //     nextStepWithBags = vectors.normalize(vectors.getVector(worker, getPathAroundObjects(worker, closestBagPlace, store.getState())[0]));
-                // } else {
-                //     nextStepWithBags = vectors.normalize(vectors.getVector(worker, closestBagPlace));
-                // }
-
-                // console.log('move to bags', worker, nextStepWithBags);
-
-                // return service.write(`MOVE ${worker.id} ${nextStepWithBags.x} ${nextStepWithBags.y}`).then(() => service.read(1));
-            }).then(() => {
-                if (!worker.destination || differentTile(worker, worker.destination)) {
-                    const destination = worker.bags ? findClosest(worker, store.getState().plan) : store.getState().magazines[0];
-
-                    const step = getPathAroundObjects(worker, findClosest(worker, destination), store.getSate())[0];
-
-                    return service.write(`MOVE ${worker.id} ${step.x} ${step.y}`).then(() => service.read(1));
-                }
-
-                return Promise.resolve();
-            });
-        }, Promise.resolve());
+        const workerToMove = store.getState().workers[0];
+        return service.write(`MOVE ${workerToMove.id} 0 1`).then(() => service.read(1)).then(() => gridder.updateCell(store.getState().map[workerToMove.y][workerToMove.x]));
     })
     .then(() => {
-        [...store.getState().objects, ...store.getState().magazines].forEach(object => {
-            for (let x = 0; x < object.size.width; x++) {
-                for (let y = 0; y < object.size.height; y++) {
-                    gridder.updateCell({
-                        x: object.x + x,
-                        y: object.y + y,
-                        type: object.type,
-                    });
-                }
-            }
-        });
-
-        store.getState().plan.forEach(planElement => {
-            gridder.updateCell({
-                x: planElement.x,
-                y: planElement.y,
-                type: tileTypes.dam,
-            });
-        });
-
-        store.getState().workers.forEach(worker => {
-            gridder.updateCell({
-                x: worker.x,
-                y: worker.y,
-                type: worker.status,
-            });
-        });
+        service.nextTurn();
     })
-    .then(() => service.nextTurn())
     .catch(error => {
-        console.log(`PROMISE CHAIN ERROR: ${JSON.stringify(error)}`);
+        console.log(`PROMISE CHAIN ERROR: ${error}`);
         service.nextTurn();
     });
 };

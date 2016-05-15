@@ -7,7 +7,7 @@
     "example": "node players/example/example",
     "flood": "node players/promiseFlood/floodServer",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "server": "node server/mock"
+    "mock": "node server/mock"
   },
   "repository": {
     "type": "git",

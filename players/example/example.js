@@ -6,10 +6,7 @@ const config = require('./config');
 const logger = require('../../logger')(namespace, config.loggerPort);
 const gridder = require('../../gridder')(namespace, config.gridderPort);
 const stateUpdater = require('../../stateUpdater')(namespace, config.stateUpdaterPort);
-
-const range = (numberOfElements) => {
-    return Array.apply(null, Array(numberOfElements)).map((_, i) => i);
-};
+const range = require('../../utils/range');
 
 const getRandomInt = (min, max) => (Math.floor(Math.random() * (max - min)) + min);
 

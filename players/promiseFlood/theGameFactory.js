@@ -35,6 +35,7 @@ const getTile = (x, y, type) => {
         x,
         y,
         type,
+        bags: 0,
     };
 };
 

@@ -1,6 +1,6 @@
 module.exports = {
-    port: 20005,
-    host: 'dl24-lite.fp.lan',
-    username: 'team20',
-    password: 'epwezfaqst'
+    port: 3033,
+    host: 'localhost',
+    username: 'zenek',
+    password: 'gitara',
 };
